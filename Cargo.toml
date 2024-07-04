@@ -1,0 +1,29 @@
+[package]
+name = "il-boost"
+version = "0.1.0"
+edition = "2021"
+
+[dependencies]
+# Commit Boost
+cb-metrics = { git = "https://github.com/Commit-Boost/commit-boost-client", rev = "1a5169670e7e4bb17efbaec2fd49d581c1f1025d" }
+cb-common = { git = "https://github.com/Commit-Boost/commit-boost-client", rev = "1a5169670e7e4bb17efbaec2fd49d581c1f1025d" }
+
+# Async / Threads
+tokio = { version = "1.37.0", features = ["full"] }
+futures = "0.3.30"
+dashmap = "5.5.3"
+
+# Serialization
+serde = { version = "1.0.203", features = ["derive"] }
+
+# preconf-boost
+# preconf = { git = "https://github.com/gattaca-com/preconf-boost", rev = "720f870d40718c9689df73763bc6d8a748bf33d0" }
+
+
+# Ethereum
+ethers = "2.0.14"
+alloy = { version = "0.1.3", features = ["rpc", "rpc-types", "full", "rpc-types-beacon"] }
+
+# Crypto
+tree_hash = "0.5"
+tree_hash_derive = "0.5"
