@@ -5,7 +5,7 @@ use config::InclusionListConfig;
 use cb_common::{commit::request::SignRequest, config::{load_module_config, StartModuleConfig}, utils::initialize_tracing_log};
 use mock_relay::MockRelay;
 use tree_hash::Hash256;
-use types::{BeaconBlock, InclusionListSummary, InclusionProof, SignedBeaconBlock};
+use types::{BeaconBlock, InclusionList, InclusionProof, SignedBeaconBlock};
 
 mod config;
 mod mock_relay;
@@ -46,19 +46,19 @@ async fn main() -> Result<(), ()> {
     Ok(())
 }
 
-fn get_inclusion_list(slot: u64, proposer_index: u64,) -> Result<InclusionListSummary, ()>  {
+fn get_inclusion_list(slot: u64, proposer_index: u64,) -> Result<InclusionList, ()>  {
     // this should return a list of censored transactions
     // if the txn is in the mempool, pays the base fee,
     // has a non-zero tip, and there is gas remaining in the block, 
     // it is being censored
-    Ok(InclusionListSummary {
+    Ok(InclusionList {
         slot,
         proposer_index,
-        summary: vec![],
+        transactions: vec![],
     })
 }
 
-fn verify_inclusion_proof(inclusion_proof: InclusionProof, inclusion_list: InclusionListSummary) -> Result<bool, ()> {
+fn verify_inclusion_proof(inclusion_proof: InclusionProof, inclusion_list: InclusionList) -> Result<bool, ()> {
     todo!()
 }
 
