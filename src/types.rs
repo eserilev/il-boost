@@ -2,6 +2,7 @@ use alloy::{primitives::Address, rpc::types::beacon::{payload::ExecutionPayloadH
 use serde::{Deserialize, Serialize};
 use tree_hash::Hash256;
 use tree_hash_derive::TreeHash;
+use ethereum_consensus::deneb::Transaction;
 
 pub struct ExecutionPayloadHeaderWithProof {
     pub header: ExecutionPayloadHeader,
@@ -19,10 +20,4 @@ pub struct BeaconBlock {
 }
 
 pub struct InclusionProof {
-}
-
-pub struct InclusionList {
-    pub slot: u64,
-    pub proposer_index: u64,
-    pub transactions: Vec<Hash256>
 }
