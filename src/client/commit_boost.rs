@@ -4,7 +4,7 @@ use parking_lot::RwLock;
 use alloy::rpc::types::beacon::{BlsPublicKey, BlsSignature};
 use tree_hash::TreeHash;
 
-use super::types::InclusionList;
+use super::types::{InclusionList, SignedExecutionPayloadHeader};
 
 
 const ID: &str = "inclusion-list-boost";
@@ -38,6 +38,18 @@ impl CommitBoostClient {
             this.load_pubkeys().await.expect("failed to load pubkeys");
         });
 
+        Ok(client)
+    }
+
+    pub fn new_mock(url: impl Into<String>) -> Result<Self, CommitBoostError> {
+        let client = Self {
+            url: url.into(),
+            client: reqwest::Client::new(),
+            pubkeys: Arc::new(RwLock::new(Vec::new())),
+        };
+
+        let mut this = client.clone();
+        this.load_mock_pubkeys();
         Ok(client)
     }
 
@@ -77,8 +89,14 @@ impl CommitBoostClient {
         }
     }
 
+    pub fn load_mock_pubkeys(&mut self) {
+        let pubkeys = vec![BlsPublicKey::default()];
+        let mut pk = self.pubkeys.write();
+        *pk = pubkeys;
+    }
+
     // TODO: error handling
-    pub async fn sign_inclusion_list(&self, inclusion_list: &InclusionList) -> Option<BlsSignature> {
+    pub async fn submit_inclusion_list(&self, inclusion_list: &InclusionList) -> Option<BlsSignature> {
         let root = inclusion_list.tree_hash_root();
         let request =
             SignRequest::builder(ID, *self.pubkeys.read().first().expect("pubkeys loaded"))
@@ -88,7 +106,8 @@ impl CommitBoostClient {
 
         tracing::debug!(url, ?request, "Requesting signature from commit_boost");
 
-        let response = reqwest::Client::new()
+        let response = self
+            .client
             .post(url)
             .json(&request)
             .send()
@@ -98,38 +117,87 @@ impl CommitBoostClient {
         let status = response.status();
         let response_bytes = response.bytes().await.expect("failed to get bytes");
 
+        // Convert the byte slice to a string slice
+        let response_str = std::str::from_utf8(&response_bytes).expect("Invalid UTF-8");
+        println!("{:?}", response_str);
+
         if !status.is_success() {
             let err = String::from_utf8_lossy(&response_bytes).into_owned();
             tracing::error!(err, "failed to get signature");
             return None;
         }
 
-        serde_json::from_slice(&response_bytes).expect("failed deser")
+        Some(BlsSignature::from_slice(&response_bytes))
+    }
+
+    // calls /eth/v1/builder/header_with_proofs/{slot}/{parent_hash}/{pubkey}
+    // verifies the proof and returns the block header
+    pub fn get_header_with_proof(&self) -> Result<SignedExecutionPayloadHeader, ()> {
+        todo!()
     }
 }
 
 #[cfg(test)]
 mod tests {
+    use std::{convert::Infallible, net::SocketAddr};
+
     use alloy::{
         hex, network::{EthereumWallet, NetworkWallet, TransactionBuilder}, node_bindings::Anvil, primitives::{B256, U256}, providers::{Provider, ProviderBuilder}, rpc::types::TransactionRequest, signers::local::PrivateKeySigner
     };
     
     use ethers::core::k256::ecdsa::signature::Signer;
+    use hyper::{server::conn::AddrIncoming, service::{make_service_fn, service_fn}, Body, Request, Response, Server};
+    use tokio::task::JoinHandle;
     use tree_hash::Hash256;
 
     use super::*;
 
+    struct MockRelay {
+        server_handle: Option<JoinHandle<()>>,
+    }
+
+    impl MockRelay {
+        pub async fn new(port: u16) -> Self {
+            // Define the address for the server
+            let addr = SocketAddr::from(([127, 0, 0, 1], port));
+
+            // Create a service
+            let make_svc = make_service_fn(|_conn| {
+                async {
+                    Ok::<_, Infallible>(service_fn(MockRelay::handle_request))
+                }
+            });
+
+            // Create the server
+            let server = Server::bind(&addr).serve(make_svc);
+
+            // Run the server
+            let server_future = async move {
+                if let Err(e) = server.await {
+                    eprintln!("Server error: {}", e);
+                }
+            };
+
+            MockRelay {
+                server_handle: Some(tokio::spawn(server_future))
+            }
+        }
+
+        async fn handle_request(_req: Request<Body>) -> Result<Response<Body>, Infallible> {
+            let signature = BlsSignature::default();
+            Ok(Response::new(Body::from(signature.as_slice().to_owned())))
+        }
+    }
+
     #[tokio::test]
-    async fn test_commit_boost_signature() {
+    async fn test_submit_inclusion_list() {
         let _ = tracing_subscriber::fmt::try_init();
 
         // Spin up a forked Anvil node.
         // Ensure `anvil` is available in $PATH.
         let anvil = Anvil::new().try_spawn().unwrap();
-
-        let client = CommitBoostClient::new("http://localhost:33950")
-            .await
-            .unwrap();
+        let _ = MockRelay::new(33950).await;
+        let client = CommitBoostClient::new_mock("http://localhost:33950/").unwrap();
 
         // Create a provider.
         let rpc_url = anvil.endpoint().parse().unwrap();
@@ -164,10 +232,8 @@ mod tests {
             transaction: signed.tx_hash().clone()
         };
         
-        let signature = client.sign_inclusion_list(&message).await.unwrap();
+        let signature = client.submit_inclusion_list(&message).await.unwrap();
 
         println!("Message signed, signature: {signature}");
-        assert!(true==false);
-        // assert!(signature.verify(&message.tree_hash_root(), &client.pubkeys.read().first().unwrap()));
     }
 }

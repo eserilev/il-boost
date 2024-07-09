@@ -3088,6 +3088,8 @@ dependencies = [
  "ethereum-consensus",
  "ethers",
  "futures",
+ "hyper 0.14.29",
+ "merkle_proof",
  "parking_lot",
  "reqwest 0.12.5",
  "serde",
@@ -3464,6 +3466,17 @@ name = "memchr"
 version = "2.7.4"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "78ca9ab1a0babb1e7d5695e3530886289c18cf2f87ec19a575a0abdce112e3a3"
+
+[[package]]
+name = "merkle_proof"
+version = "0.2.0"
+source = "git+https://github.com/sigp/lighthouse?rev=9e12c21#9e12c21f268c80a3f002ae0ca27477f9f512eb6f"
+dependencies = [
+ "ethereum-types",
+ "ethereum_hashing 0.6.0",
+ "lazy_static",
+ "safe_arith",
+]
 
 [[package]]
 name = "mime"
@@ -4688,6 +4701,11 @@ name = "ryu"
 version = "1.0.18"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "f3cb5ba0dc43242ce17de99c180e96db90b235b8a9fdc9543c96d2209116bd9f"
+
+[[package]]
+name = "safe_arith"
+version = "0.1.0"
+source = "git+https://github.com/sigp/lighthouse?rev=9e12c21#9e12c21f268c80a3f002ae0ca27477f9f512eb6f"
 
 [[package]]
 name = "salsa20"
