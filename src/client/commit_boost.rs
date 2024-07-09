@@ -133,6 +133,8 @@ impl CommitBoostClient {
     // calls /eth/v1/builder/header_with_proofs/{slot}/{parent_hash}/{pubkey}
     // verifies the proof and returns the block header
     pub fn get_header_with_proof(&self) -> Result<SignedExecutionPayloadHeader, ()> {
+        // this should verify that the transactions in the inclusion list are either included in the proof
+        // OR in the previous execution payload
         todo!()
     }
 }
