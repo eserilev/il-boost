@@ -4,6 +4,8 @@ use parking_lot::RwLock;
 use alloy::rpc::types::beacon::{BlsPublicKey, BlsSignature};
 use tree_hash::TreeHash;
 
+use crate::error::CommitBoostError;
+
 use super::types::{InclusionList, SignedExecutionPayloadHeader};
 
 
@@ -18,11 +20,6 @@ pub struct CommitBoostClient {
     url: String,
     client: reqwest::Client,
     pubkeys: Arc<RwLock<Vec<BlsPublicKey>>>,
-}
-
-#[derive(Debug)]
-pub enum CommitBoostError {
-    Reqwest(reqwest::Error),
 }
 
 impl CommitBoostClient {

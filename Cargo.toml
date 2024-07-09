@@ -45,3 +45,7 @@ tracing-subscriber = "0.3.18"
 
 merkle_proof = { git = "https://github.com/sigp/lighthouse", rev = "9e12c21" }
 mev-share-sse = { git = "https://github.com/paradigmxyz/mev-share-rs" }
+
+# reth
+reth-transaction-pool = { git = "https://github.com/paradigmxyz/reth" }
+reth-provider = { git = "https://github.com/paradigmxyz/reth" }
