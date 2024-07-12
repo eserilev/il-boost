@@ -1,6 +1,7 @@
 use beacon_api_client::{mainnet::Client, Error, ProposerDuty};
 use reqwest::Url;
 
+
 pub struct LookaheadProvider {
     client: Client,
     url: String,
@@ -42,7 +43,6 @@ async fn get_slot(beacon_url: &str, slot: &str) -> Result<Option<u64>, ()> {
     let json: serde_json::Value = serde_json::from_str(&res.text().await.unwrap()).unwrap();
 
     if let Some(slot) = json.pointer("/data/header/message/slot") {
-
         let slot_str = slot.as_str().unwrap();
         return Ok(Some(slot_str.parse::<u64>().unwrap()));
     }

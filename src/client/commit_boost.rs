@@ -1,19 +1,18 @@
-use std::sync::Arc;
+use alloy::rpc::types::beacon::{BlsPublicKey, BlsSignature};
 use cb_common::commit::request::SignRequest;
 use parking_lot::RwLock;
-use alloy::rpc::types::beacon::{BlsPublicKey, BlsSignature};
+use std::sync::Arc;
 use tree_hash::TreeHash;
 
 use crate::error::CommitBoostError;
 
 use super::types::{InclusionList, SignedExecutionPayloadHeader};
 
-
 const ID: &str = "inclusion-list-boost";
 // TODO add actual routes
 const COMMIT_BOOST_API: &str = "commit-boost-api-url";
 const PUBKEYS_PATH: &str = "pubkeys-path";
-const SIGN_REQUEST_PATH: &str= "sign-request-path";
+const SIGN_REQUEST_PATH: &str = "sign-request-path";
 
 #[derive(Debug, Clone)]
 pub struct CommitBoostClient {
@@ -93,7 +92,11 @@ impl CommitBoostClient {
     }
 
     // TODO: error handling
-    pub async fn submit_inclusion_list(&self, inclusion_list: &InclusionList) -> Option<BlsSignature> {
+    pub async fn submit_inclusion_list(
+        &self,
+        maybe_inclusion_list: Option<&InclusionList>,
+    ) -> Option<BlsSignature> {
+        let Some(inclusion_list) = maybe_inclusion_list else { return None; };
         let root = inclusion_list.tree_hash_root();
         let request =
             SignRequest::builder(ID, *self.pubkeys.read().first().expect("pubkeys loaded"))
@@ -141,11 +144,21 @@ mod tests {
     use std::{convert::Infallible, net::SocketAddr};
 
     use alloy::{
-        hex, network::{EthereumWallet, NetworkWallet, TransactionBuilder}, node_bindings::Anvil, primitives::{B256, U256}, providers::{Provider, ProviderBuilder}, rpc::types::TransactionRequest, signers::local::PrivateKeySigner
+        hex,
+        network::{EthereumWallet, NetworkWallet, TransactionBuilder},
+        node_bindings::Anvil,
+        primitives::{B256, U256},
+        providers::{Provider, ProviderBuilder},
+        rpc::types::TransactionRequest,
+        signers::local::PrivateKeySigner,
     };
-    
+
     use ethers::core::k256::ecdsa::signature::Signer;
-    use hyper::{server::conn::AddrIncoming, service::{make_service_fn, service_fn}, Body, Request, Response, Server};
+    use hyper::{
+        server::conn::AddrIncoming,
+        service::{make_service_fn, service_fn},
+        Body, Request, Response, Server,
+    };
     use tokio::task::JoinHandle;
     use tree_hash::Hash256;
 
@@ -161,10 +174,8 @@ mod tests {
             let addr = SocketAddr::from(([127, 0, 0, 1], port));
 
             // Create a service
-            let make_svc = make_service_fn(|_conn| {
-                async {
-                    Ok::<_, Infallible>(service_fn(MockRelay::handle_request))
-                }
+            let make_svc = make_service_fn(|_conn| async {
+                Ok::<_, Infallible>(service_fn(MockRelay::handle_request))
             });
 
             // Create the server
@@ -178,7 +189,7 @@ mod tests {
             };
 
             MockRelay {
-                server_handle: Some(tokio::spawn(server_future))
+                server_handle: Some(tokio::spawn(server_future)),
             }
         }
 
@@ -228,10 +239,10 @@ mod tests {
         let message = InclusionList {
             slot: 20,
             validator_index: 1,
-            transaction: signed.tx_hash().clone()
+            transaction: signed.tx_hash().clone(),
         };
-        
-        let signature = client.submit_inclusion_list(&message).await.unwrap();
+
+        let signature = client.submit_inclusion_list(Some(&message)).await.unwrap();
 
         println!("Message signed, signature: {signature}");
     }

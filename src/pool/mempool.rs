@@ -1,21 +1,57 @@
-use reth_transaction_pool::{blobstore::InMemoryBlobStore, validate::ValidTransaction, CoinbaseTipOrdering, EthPooledTransaction, Pool, PoolTransaction, TransactionOrigin, TransactionPool, TransactionValidationOutcome, TransactionValidator};
+use std::sync::Arc;
+use reth_transaction_pool::{
+    blobstore::InMemoryBlobStore, validate::ValidTransaction, CoinbaseTipOrdering,
+    EthPooledTransaction, Pool, PoolTransaction, TransactionOrigin, TransactionPool,
+    TransactionValidationOutcome, TransactionValidator, ValidPoolTransaction,
+};
+
+use ethers::{core::types::Block, types::H256};
+
+use crate::client::types::InclusionList;
 
 pub struct MemoryPool {
     pool: Pool<OkValidator, CoinbaseTipOrdering<EthPooledTransaction>, InMemoryBlobStore>,
 }
 
 impl MemoryPool {
-    pub fn new() {
+    pub fn new() -> Self {
         let pool = reth_transaction_pool::Pool::new(
             OkValidator::default(),
             CoinbaseTipOrdering::default(),
             InMemoryBlobStore::default(),
             Default::default(),
         );
+        MemoryPool {
+            pool
+        }
     }
 
-    pub fn get_censored_transactions(&self) {
-        let x = self.pool.all_transactions();
+    pub fn get_inclusion_list(
+        &self,
+        slot: u64,
+        validator_index: usize,
+        previous_block: &Block<H256>,
+    ) -> Option<InclusionList> {
+        if previous_block.gas_used == previous_block.gas_limit {
+            return None;
+        }
+        let mut censored_transactions = vec![];
+        let mut gas_left = previous_block.gas_limit - previous_block.gas_used;
+        for transaction in self.pool.all_transactions().pending {
+            if transaction.priority_fee_or_price() > 0
+                && !transaction.is_eip4844()
+                && gas_left > transaction.gas_limit().into()
+            {
+                gas_left -= transaction.gas_limit().into();
+                censored_transactions.push(transaction.hash().clone());
+            }
+        }
+
+        Some(InclusionList {
+            slot,
+            validator_index,
+            transaction: *censored_transactions.first().unwrap()
+        })
 
         // iterate through all pending and queued transactions in the mempool and filter for potentially censored txs
     }
