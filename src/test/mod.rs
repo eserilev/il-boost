@@ -36,17 +36,16 @@ pub async fn build_mock_inclusion_list_request() {
         .map(|t| t.clone().into())
         .collect::<Vec<Transaction>>();
 
-    let mut mock_block: Block<alloy::rpc::types::Transaction> = Block::default();
-    mock_block.header.gas_limit = u128::MAX;
+    let mut mock_previous_block: Block<alloy::rpc::types::Transaction> = Block::default();
+    mock_previous_block.header.gas_limit = u128::MAX;
 
     assert_eq!(transactions.len(), 1);
 
-    let censored_transactions = get_censored_transactions(transactions, &mock_block);
+    let censored_transactions = get_censored_transactions(transactions, &mock_previous_block);
 
     assert_eq!(censored_transactions.len(), 1);
 
     let mock_inclusion_list = InclusionList::new(1, 1, censored_transactions);
-
 
     let pubkeys = mock_signer_client.get_pubkeys().await.unwrap();
 
