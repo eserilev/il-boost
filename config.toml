@@ -1,0 +1,12 @@
+[signer]
+[signer.loader]
+key_path = "./keys.example.json"
+
+[extra]
+beacon_api = "http://127.0.0.1:50814"
+execution_api = "http://127.0.0.1:50785"
+
+[[modules]]
+id = "IL_COMMIT"
+docker_image = "test_il_commit"
+sleep_secs = 5

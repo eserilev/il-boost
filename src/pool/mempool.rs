@@ -3,11 +3,14 @@ use reth_transaction_pool::{
     blobstore::InMemoryBlobStore, validate::ValidTransaction, CoinbaseTipOrdering,
     EthPooledTransaction, Pool, PoolTransaction, TransactionOrigin, TransactionPool,
     TransactionValidationOutcome, TransactionValidator, ValidPoolTransaction,
+    test_utils::{MockTransactionFactory}
+    
+    
 };
 
 use ethers::{core::types::Block, types::H256};
 
-use crate::client::types::InclusionList;
+use crate::inclusion_list::types::InclusionList;
 
 pub struct MemoryPool {
     pool: Pool<OkValidator, CoinbaseTipOrdering<EthPooledTransaction>, InMemoryBlobStore>,
@@ -25,6 +28,12 @@ impl MemoryPool {
             pool
         }
     }
+
+    // pub async fn create_transaction(&self) {
+    //     let mut mock_tx_factory = MockTransactionFactory::default();
+    //     let transaction = mock_tx_factory.create_eip1559();
+    //     self.pool.add_transaction(TransactionOrigin::Local, transaction).await;
+    // }
 
     pub fn get_inclusion_list(
         &self,
@@ -50,7 +59,7 @@ impl MemoryPool {
         Some(InclusionList {
             slot,
             validator_index,
-            transaction: *censored_transactions.first().unwrap()
+            transactions: censored_transactions.into()
         })
 
         // iterate through all pending and queued transactions in the mempool and filter for potentially censored txs

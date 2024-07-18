@@ -1,18 +1,23 @@
 use alloy::rpc::types::beacon::{BlsPublicKey, BlsSignature};
+use axum::http::HeaderMap;
 use cb_common::commit::request::SignRequest;
+use cb_pbs::{BuilderApi, BuilderApiState, GetHeaderParams, GetHeaderReponse, PbsState};
 use parking_lot::RwLock;
 use std::sync::Arc;
 use tree_hash::TreeHash;
+use std::sync::atomic::{AtomicU64, Ordering};
+use async_trait::async_trait;
 
-use crate::error::CommitBoostError;
+use crate::{client::types::SignedExecutionPayloadHeaderWithProof, error::CommitBoostError, inclusion_list::types::InclusionList};
 
-use super::types::{InclusionList, SignedExecutionPayloadHeader};
+use super::types::SignedExecutionPayloadHeader;
 
 const ID: &str = "inclusion-list-boost";
 // TODO add actual routes
 const COMMIT_BOOST_API: &str = "commit-boost-api-url";
 const PUBKEYS_PATH: &str = "pubkeys-path";
 const SIGN_REQUEST_PATH: &str = "sign-request-path";
+const GET_HEADER_WITH_PROOF_PATH: &str = "get-header-with-proof-path";
 
 #[derive(Debug, Clone)]
 pub struct CommitBoostClient {
@@ -132,9 +137,30 @@ impl CommitBoostClient {
 
     // calls /eth/v1/builder/header_with_proofs/{slot}/{parent_hash}/{pubkey}
     // verifies the proof and returns the block header
-    pub fn get_header_with_proof(&self) -> Result<SignedExecutionPayloadHeader, ()> {
+    pub async fn get_header_with_proof(&self) -> Result<Option<SignedExecutionPayloadHeader>, ()> {
         // this should verify that the transactions in the inclusion list are either included in the proof
         // OR in the previous execution payload
+
+        let url = format!("{}{COMMIT_BOOST_API}{GET_HEADER_WITH_PROOF_PATH}", self.url);
+
+        let response = self
+            .client
+            .get(url)
+            // .json(&request)
+            .send()
+            .await
+            .expect("failed to get request");
+
+        let status = response.status();
+
+        if !status.is_success() { 
+            return Ok(None);
+        }
+
+        let signed_payload_with_proof = response.json::<SignedExecutionPayloadHeaderWithProof>().await.unwrap();
+
+    
+
         todo!()
     }
 }
@@ -199,6 +225,7 @@ mod tests {
         }
     }
 
+
     #[tokio::test]
     async fn test_submit_inclusion_list() {
         let _ = tracing_subscriber::fmt::try_init();
@@ -239,7 +266,7 @@ mod tests {
         let message = InclusionList {
             slot: 20,
             validator_index: 1,
-            transaction: signed.tx_hash().clone(),
+            transactions: vec![signed.tx_hash().clone()].into(),
         };
 
         let signature = client.submit_inclusion_list(Some(&message)).await.unwrap();

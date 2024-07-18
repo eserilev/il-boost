@@ -5,13 +5,17 @@ edition = "2021"
 
 [dependencies]
 # Commit Boost
-cb-metrics = { git = "https://github.com/Commit-Boost/commit-boost-client", rev = "1a5169670e7e4bb17efbaec2fd49d581c1f1025d" }
-cb-common = { git = "https://github.com/Commit-Boost/commit-boost-client", rev = "1a5169670e7e4bb17efbaec2fd49d581c1f1025d" }
+cb-metrics = { git = "https://github.com/Commit-Boost/commit-boost-client", branch = "main" }
+cb-common = { git = "https://github.com/Commit-Boost/commit-boost-client", branch = "main" }
+cb-pbs = { git = "https://github.com/Commit-Boost/commit-boost-client", branch = "main" }
+
+toml = "0.5"
 
 # Async / Threads
 tokio = { version = "1.37.0", features = ["full"] }
 futures = "0.3.30"
 dashmap = "5.5.3"
+async-trait = "0.1.80"
 
 # Serialization
 serde = { version = "1.0.203", features = ["derive"] }
@@ -23,20 +27,20 @@ serde_json = "1.0.115"
 
 # Ethereum
 ethers = "2.0.14"
-alloy = { version = "0.1.3", features = ["rpc", "rpc-types", "full", "rpc-types-beacon", "signer-local", "node-bindings"] }
+alloy = { version = "0.1.3", features = ["rpc", "rpc-types", "full", "rpc-types-beacon", "provider-txpool-api", "signer-local", "node-bindings", "ssz"] }
 ethereum-consensus = { git = "https://github.com/ralexstokes/ethereum-consensus", rev = "cf3c404" }
 beacon-api-client = { git = "https://github.com/ralexstokes/ethereum-consensus" }
 
 # Crypto
-tree_hash = "0.5"
-tree_hash_derive = "0.5"
+tree_hash = { git = "https://github.com/eserilev/tree_hash", branch = "alloy-deps"}
+tree_hash_derive = { git = "https://github.com/eserilev/tree_hash", branch = "alloy-deps"}
 
 reqwest = "0.12"
 hyper = "0.14"
 
 # types
 parking_lot = "0.12.1"
-ssz_types = "0.6"
+ssz_types = { git = "https://github.com/eserilev/ssz_types", branch = "alloy-tweaks"}
 
 # tracing
 tracing = "0.1.40"
@@ -47,5 +51,9 @@ merkle_proof = { git = "https://github.com/sigp/lighthouse", rev = "9e12c21" }
 mev-share-sse = { git = "https://github.com/paradigmxyz/mev-share-rs" }
 
 # reth
-reth-transaction-pool = { git = "https://github.com/paradigmxyz/reth" }
+reth-transaction-pool = { git = "https://github.com/paradigmxyz/reth", features = ["test-utils"]}
 reth-provider = { git = "https://github.com/paradigmxyz/reth" }
+
+axum = { version = "0.7.5", features = ["macros"] }
+axum-extra = { version = "0.9.3", features = ["typed-header"] }
+rs_merkle = "1.4.2"
