@@ -1,10 +1,13 @@
+use std::collections::HashMap;
 use std::sync::Arc;
 
+use alloy::rpc::types::beacon::BlsSignature;
 use alloy::{network::TransactionResponse, primitives::B256};
+use parking_lot::RwLock;
 use reth_transaction_pool::{test_utils::MockTransaction, ValidPoolTransaction};
 use serde::{Deserialize, Serialize};
-use ssz_types::{FixedVector, VariableList};
 use ssz_types::typenum::U32;
+use ssz_types::{FixedVector, VariableList};
 use tree_hash_derive::TreeHash;
 
 type MaxInclusionListLength = U32;
@@ -17,13 +20,19 @@ pub struct InclusionList {
 }
 
 impl InclusionList {
-    pub fn new(slot: u64,  validator_index: usize, transactions: Vec<B256>) -> Self {   
+    pub fn new(slot: u64, validator_index: usize, transactions: Vec<B256>) -> Self {
         Self {
             slot,
             validator_index,
-            transactions: transactions.into()
+            transactions: transactions.into(),
         }
     }
+}
+
+#[derive(Debug, Default, Clone, PartialEq, Serialize, Deserialize)]
+pub struct InclusionRequest {
+    pub inclusion_list: InclusionList,
+    pub signature: BlsSignature,
 }
 
 #[derive(Debug, Serialize, Deserialize)]
@@ -55,7 +64,7 @@ impl From<Arc<ValidPoolTransaction<MockTransaction>>> for Transaction {
             is_eip4844: value.is_eip4844(),
             gas: value.gas_limit().into(),
             gas_limit: value.gas_limit().into(),
-            max_priority_fee_per_gas: Some(value.priority_fee_or_price())
+            max_priority_fee_per_gas: Some(value.priority_fee_or_price()),
         }
     }
 }
@@ -67,7 +76,12 @@ impl From<alloy::rpc::types::Transaction> for Transaction {
             is_eip4844: false,
             gas: value.gas,
             gas_limit: value.gas,
-            max_priority_fee_per_gas: value.max_priority_fee_per_gas
+            max_priority_fee_per_gas: value.max_priority_fee_per_gas,
         }
     }
+}
+
+pub struct InclusionBoostCache {
+    pub block_cache: Arc<RwLock<HashMap<u64, Vec<B256>>>>,
+    pub inclusion_list_cache: Arc<RwLock<HashMap<u64, InclusionList>>>,
 }

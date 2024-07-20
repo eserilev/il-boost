@@ -1,6 +1,8 @@
 use beacon_api_client::{mainnet::Client, Error, ProposerDuty};
+use error::LookaheadError;
 use reqwest::Url;
 
+pub mod error;
 
 pub struct LookaheadProvider {
     client: Client,
@@ -15,14 +17,13 @@ impl LookaheadProvider {
         }
     }
 
-    /// Get the proposer duties for UPCOMING slots.
-    pub async fn get_current_lookahead(&self) -> Result<Vec<ProposerDuty>, Error> {
+    /// Get proposer duties for the current epoch
+    pub async fn get_current_lookahead(&self) -> Result<Vec<ProposerDuty>, LookaheadError> {
         tracing::info!("Getting current lookahead duties");
 
         let current_slot = get_slot(&self.url, "head")
-            .await
-            .expect("failed to get slot")
-            .unwrap();
+            .await?
+            .ok_or(LookaheadError::FailedLookahead)?;
 
         let epoch = current_slot / 32;
         tracing::info!("Getting proposer duties for epoch: {}", epoch);
@@ -36,16 +37,18 @@ impl LookaheadProvider {
     }
 }
 
-async fn get_slot(beacon_url: &str, slot: &str) -> Result<Option<u64>, ()> {
+async fn get_slot(beacon_url: &str, slot: &str) -> Result<Option<u64>, LookaheadError> {
     let url = format!("{}/eth/v1/beacon/headers/{}", beacon_url, slot);
 
-    let res = reqwest::get(url).await.unwrap();
-    let json: serde_json::Value = serde_json::from_str(&res.text().await.unwrap()).unwrap();
+    let res = reqwest::get(url).await?;
+    let json: serde_json::Value = serde_json::from_str(&res.text().await?)?;
 
-    if let Some(slot) = json.pointer("/data/header/message/slot") {
-        let slot_str = slot.as_str().unwrap();
-        return Ok(Some(slot_str.parse::<u64>().unwrap()));
-    }
+    let Some(slot) = json.pointer("/data/header/message/slot") else {
+        return Ok(None);
+    };
+    let Some(slot_str) = slot.as_str() else {
+        return Ok(None);
+    };
 
-    Ok(None)
+    Ok(Some(slot_str.parse::<u64>()?))
 }
