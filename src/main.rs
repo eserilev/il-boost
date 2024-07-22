@@ -18,13 +18,8 @@ mod config;
 mod inclusion_boost;
 mod lookahead;
 mod test;
+mod pbs;
 
-#[derive(Debug, Clone, serde::Deserialize)]
-struct HeadEvent {
-    slot: String,
-    block: B256,
-    epoch_transition: bool,
-}
 
 #[tokio::main]
 async fn main() -> Result<(), InclusionListBoostError> {
