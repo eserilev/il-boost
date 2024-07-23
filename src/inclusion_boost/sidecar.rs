@@ -34,12 +34,13 @@ impl InclusionSideCar {
         config: StartModuleConfig<InclusionListConfig>,
         eth_provider: RootProvider<alloy::transports::http::Http<reqwest::Client>>,
         cache: Arc<InclusionBoostCache>,
+        mev_port: u16
     ) -> Self {
         let inclusion_boost = InclusionBoost::new(
             config.id,
             config.signer_client,
             HashMap::new(),
-            "".to_string(), // TODO get from config
+            mev_port.to_string(), // TODO get from config
         );
 
         Self {

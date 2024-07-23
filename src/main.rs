@@ -1,6 +1,7 @@
 use std::{collections::HashMap, sync::Arc};
 
-use cb_common::{config::load_module_config, utils::initialize_tracing_log};
+use cb_common::{config::{load_module_config, load_pbs_config, load_pbs_custom_config}, utils::initialize_tracing_log};
+use cb_pbs::{BuilderApi, PbsService, PbsState};
 use config::InclusionListConfig;
 
 use inclusion_boost::{
@@ -13,6 +14,8 @@ use alloy::{
     transports::http::Http,
 };
 use parking_lot::RwLock;
+use crate::pbs::InclusionBoostApi;
+use crate::pbs::InclusionBoost;
 
 mod config;
 mod inclusion_boost;
@@ -33,7 +36,13 @@ async fn main() -> Result<(), InclusionListBoostError> {
         inclusion_list_cache: Arc::new(RwLock::new(HashMap::new())),
     });
 
-    let inclusion_sidecar = InclusionSideCar::new(config, eth_provider, cache);
+    let psb_module = load_pbs_custom_config().unwrap();
+
+    let state = PbsState::new(psb_module);
+
+    let inclusion_sidecar = InclusionSideCar::new(config, eth_provider, cache,state.config.pbs_config.port);
+
+    PbsService::run::<InclusionBoost, InclusionBoostApi>(state).await;
 
     inclusion_sidecar.run().await?;
 
