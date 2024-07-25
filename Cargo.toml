@@ -30,6 +30,7 @@ ethers = "2.0.14"
 alloy = { version = "0.1.3", features = ["rpc", "rpc-types", "full", "rpc-types-beacon", "provider-txpool-api", "signer-local", "node-bindings", "ssz"] }
 ethereum-consensus = { git = "https://github.com/ralexstokes/ethereum-consensus", rev = "cf3c404" }
 beacon-api-client = { git = "https://github.com/ralexstokes/ethereum-consensus" }
+ethereum_serde_utils = "0.5.2"
 
 # Crypto
 tree_hash = { git = "https://github.com/eserilev/tree_hash", branch = "alloy-deps"}

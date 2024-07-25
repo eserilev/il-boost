@@ -1,4 +1,4 @@
-chain = "Helder"
+chain = "Holesky"
 
 [pbs]
 port = 18550
@@ -9,6 +9,9 @@ timeout_get_payload_ms = 4000
 timeout_register_validator_ms = 3000
 skip_sigverify = true
 min_bid_eth = 0.0
+beacon_api = "http://beacon.api.url"
+execution_api = "http://execution.api.url"
+relay = "http://relay.url"
 
 [headers]
 X-MyCustomHeader = "MyCustomValue"
@@ -24,9 +27,9 @@ prometheus_config = "./docker/prometheus.yml"
 use_grafana = true
 
 [[modules]]
-id = "DA_COMMIT"
-docker_image = "test_da_commit"
+id = "IL_COMMIT"
+docker_image = "test_il_commit"
 sleep_secs = 5
-
-[module]
-id = "DA_COMMIT"
+beacon_api = "http://beacon.api.url"
+execution_api = "http://execution.api.url"
+relay = "http://relay.url"

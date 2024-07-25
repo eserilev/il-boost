@@ -8,5 +8,5 @@ pub struct Module {
 
 #[derive(Debug, Default, Clone, Serialize, Deserialize)]
 pub struct MainConfig {
-    pub module: Module,
+    pub modules: Vec<Module>,
 }

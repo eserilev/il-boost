@@ -3943,6 +3943,7 @@ dependencies = [
  "cb-pbs",
  "dashmap 5.5.3",
  "ethereum-consensus 0.1.1 (git+https://github.com/ralexstokes/ethereum-consensus?rev=cf3c404)",
+ "ethereum_serde_utils 0.5.2 (registry+https://github.com/rust-lang/crates.io-index)",
  "ethers",
  "futures",
  "hyper 1.4.1",
