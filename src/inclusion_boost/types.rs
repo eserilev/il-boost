@@ -31,7 +31,7 @@ impl InclusionList {
 
 #[derive(Debug, Default, Clone, PartialEq, Serialize, Deserialize)]
 pub struct InclusionRequest {
-    pub inclusion_list: InclusionList,
+    pub message: InclusionList,
     pub signature: BlsSignature,
 }
 

@@ -1,27 +1,30 @@
-use axum::{async_trait, body::Body, extract::State, http::{HeaderMap, Response}, response::IntoResponse, routing::{get, post}, Json, Router};
-use cb_pbs::{BuilderApi, BuilderApiStat, PbsState};
+use std::marker::PhantomData;
+
+use axum::{
+    async_trait,
+    body::Body,
+    extract::State,
+    http::{HeaderMap, Response},
+    response::IntoResponse,
+    routing::post,
+    Json, Router,
+};
+use cb_pbs::{BuilderApi, BuilderApiState, PbsState};
 use reqwest::StatusCode;
 use serde::Deserialize;
 
-use crate::inclusion_boost::types::InclusionList;
+use crate::{config::InclusionListConfig, inclusion_boost::types::InclusionList};
 
 // Any method that is not overriden will default to the normal MEV boost flow
 pub struct InclusionBoostApi;
 
-
-#[derive(Debug, Clone, Default, Deserialize)]
-pub struct InclusionBoost;
-
-
-impl BuilderApiState for InclusionBoost {}
+impl BuilderApiState for InclusionListConfig {}
 
 #[async_trait]
-impl BuilderApi<InclusionBoost> for InclusionBoostApi {
+impl BuilderApi<InclusionListConfig> for InclusionBoostApi {
+    fn extra_routes() -> Option<Router<PbsState<InclusionListConfig>>> {
+        let router = Router::new().route("/constraints", post(handle_post_constraints));
 
-    fn extra_routes() -> Option<Router<PbsState<InclusionBoost>>> {
-        let router = Router::new()
-            .route("/custom/stats", post(handle_post_constraints));
-        
         Some(router)
     }
 
@@ -35,12 +38,14 @@ impl BuilderApi<InclusionBoost> for InclusionBoostApi {
 }
 
 async fn handle_post_constraints(
-    State(state): State<PbsState<InclusionBoost>>,
+    State(state): State<PbsState<InclusionListConfig>>,
     _: HeaderMap,
-    Json(inclusion_list): Json<InclusionList>
+    Json(inclusion_list): Json<InclusionList>,
 ) -> Response<Body> {
-    let response = state.relay_client()
-        .post("url")
+    let url = format!("{}constraints", state.config.extra.relay);
+    let response = state
+        .relay_client()
+        .post(url)
         .json(&inclusion_list)
         .send()
         .await

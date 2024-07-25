@@ -1,32 +1,36 @@
-use std::{collections::HashMap, sync::Arc};
+use std::{collections::HashMap, fs, sync::Arc};
 
-use cb_common::{config::{load_module_config, load_pbs_config, load_pbs_custom_config}, utils::initialize_tracing_log};
-use cb_pbs::{BuilderApi, PbsService, PbsState};
+use cb_common::{
+    config::{load_module_config, load_pbs_custom_config},
+    utils::initialize_tracing_log,
+};
+use cb_pbs::{PbsService, PbsState};
 use config::InclusionListConfig;
 
 use inclusion_boost::{
     error::InclusionListBoostError, sidecar::InclusionSideCar, types::InclusionBoostCache,
 };
+use types::MainConfig;
 
+use crate::pbs::InclusionBoostApi;
 use alloy::{
-    primitives::B256,
     providers::{ProviderBuilder, RootProvider},
     transports::http::Http,
 };
 use parking_lot::RwLock;
-use crate::pbs::InclusionBoostApi;
-use crate::pbs::InclusionBoost;
 
 mod config;
 mod inclusion_boost;
 mod lookahead;
-mod test;
 mod pbs;
-
+mod test;
+mod types;
 
 #[tokio::main]
 async fn main() -> Result<(), InclusionListBoostError> {
     initialize_tracing_log();
+
+    parse_toml();
 
     let config = load_module_config::<InclusionListConfig>().expect("failed to load config");
     let eth_provider: RootProvider<Http<reqwest::Client>> =
@@ -36,15 +40,39 @@ async fn main() -> Result<(), InclusionListBoostError> {
         inclusion_list_cache: Arc::new(RwLock::new(HashMap::new())),
     });
 
-    let psb_module = load_pbs_custom_config().unwrap();
+    let pbs_module = load_pbs_custom_config().expect("failed to load pbs config");
 
-    let state = PbsState::new(psb_module);
+    let state = PbsState::new(pbs_module);
 
-    let inclusion_sidecar = InclusionSideCar::new(config, eth_provider, cache,state.config.pbs_config.port);
+    let inclusion_sidecar =
+        InclusionSideCar::new(config, eth_provider, cache, state.config.pbs_config.port);
 
-    PbsService::run::<InclusionBoost, InclusionBoostApi>(state).await;
+    let pbs_server = tokio::spawn(async move {
+        PbsService::run::<InclusionListConfig, InclusionBoostApi>(state).await;
+    });
 
-    inclusion_sidecar.run().await?;
+    let il_sidecar = tokio::spawn(async move {
+        let _ = inclusion_sidecar.run().await;
+    });
+
+    let _ = tokio::join!(pbs_server, il_sidecar);
 
     Ok(())
+}
+
+
+fn parse_toml() {
+    let config_str = fs::read_to_string("./config.toml")
+        .expect("Failed to read config file");
+
+    println!("{:?}", config_str);
+    
+    let config: MainConfig = toml::from_str(&config_str)
+        .expect("Failed to parse config file");
+
+    std::env::set_var("CB_MODULE_ID", config.module.id.clone());
+    std::env::set_var("CB_SIGNER_JWT", config.module.id);
+    std::env::set_var("SIGNER_SERVER", "2000");
+    std::env::set_var("CB_CONFIG", "./config.toml");
+
 }

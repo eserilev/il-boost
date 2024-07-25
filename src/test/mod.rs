@@ -1,21 +1,11 @@
 mod test {
 
-    use std::{collections::HashMap, convert::Infallible, net::SocketAddr};
-
-    use alloy::rpc::types::{
-        beacon::{BlsPublicKey, BlsSignature},
-        Block,
-    };
-    use cb_common::{commit::request::SignRequest, signer::Signer};
-    use hyper::{
-        service::{make_service_fn, service_fn},
-        Body, Request, Response, Server,
-    };
-    use reth_transaction_pool::{
-        test_utils::{MockTransactionFactory, TestPoolBuilder},
-        TransactionOrigin, TransactionPool,
-    };
-    use tokio::task::JoinHandle;
+    use std::{collections::HashMap,  net::SocketAddr};
+    use alloy::rpc::types::Block;
+    use axum::{response::IntoResponse, routing::{post, IntoMakeService}, Json, Router};
+    use hyper::StatusCode;
+    use reth_transaction_pool::{test_utils::{MockTransactionFactory, TestPoolBuilder}, TransactionOrigin, TransactionPool};
+    use tokio::{net::TcpListener, task::JoinHandle};
     use tree_hash::TreeHash;
 
     use cb_common::commit::client::SignerClient;
@@ -26,37 +16,32 @@ mod test {
     };
     const ID: &str = "DA_COMMIT";
     struct MockRelay {
-        server_handle: Option<JoinHandle<()>>,
+        tpc_listener: TcpListener,
+        service: IntoMakeService<Router>
     }
 
     impl MockRelay {
         pub async fn new(port: u16) -> Self {
-            // Define the address for the server
-            let addr = SocketAddr::from(([127, 0, 0, 1], port));
+            let app = Router::new()
+            .route("/", post(MockRelay::handle_request));
+    
+        // Define an address to bind the server to
+        let addr = SocketAddr::from(([127, 0, 0, 1], port));
+        println!("Listening on http://{}", addr);
 
-            // Create a service
-            let make_svc = make_service_fn(|_conn| async {
-                Ok::<_, Infallible>(service_fn(MockRelay::handle_request))
-            });
+        let listener = tokio::net::TcpListener::bind(addr).await.unwrap();
+        let service = app.into_make_service();
+    
 
-            // Create the server
-            let server = Server::bind(&addr).serve(make_svc);
-
-            // Run the server
-            let server_future = async move {
-                if let Err(e) = server.await {
-                    eprintln!("Server error: {}", e);
-                }
-            };
 
             MockRelay {
-                server_handle: Some(tokio::spawn(server_future)),
+                tpc_listener: listener,
+                service
             }
         }
 
-        async fn handle_request(_req: Request<Body>) -> Result<Response<Body>, Infallible> {
-            let signature = BlsSignature::default();
-            Ok(Response::new(Body::from(signature.as_slice().to_owned())))
+        async fn handle_request(Json(payload): Json<InclusionList>) -> impl IntoResponse {
+            (StatusCode::OK, Json(payload))
         }
     }
 
@@ -65,7 +50,12 @@ mod test {
         // TODO load via config
         let mock_signer_client = SignerClient::new(format!("127.0.0.1:20000"), "DA_COMMIT");
 
-        let _ = MockRelay::new(33950).await;
+        let mock_relay = MockRelay::new(33950).await;
+
+        // Run the server
+        axum::serve(mock_relay.tpc_listener, mock_relay.service)
+            .await
+            .unwrap();
 
         let mut mock_validator_pubkeys = HashMap::new();
         let pubkey_result = mock_signer_client.get_pubkeys().await.unwrap();
@@ -77,6 +67,7 @@ mod test {
             mock_signer_client,
             mock_validator_pubkeys,
             "http://localhost:33950/".to_string(),
+            // "http://0xaa58208899c6105603b74396734a6263cc7d947f444f396a90f7b7d3e65d102aec7e5e5291b27e08d02c50a050825c2f@18.192.244.122:4040/".to_string(),
         );
 
         let txpool = TestPoolBuilder::default();

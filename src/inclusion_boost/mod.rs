@@ -9,6 +9,7 @@ use alloy::{
 };
 use cb_common::commit::{client::SignerClient, error::SignerClientError, request::SignRequest};
 use error::InclusionListBoostError;
+use serde::Serialize;
 use tree_hash::TreeHash;
 use types::{InclusionList, InclusionRequest, Transaction};
 
@@ -16,7 +17,7 @@ pub mod error;
 pub mod sidecar;
 pub mod types;
 
-const CONSTRAINTS_PATH: &str = "constraints_path";
+const CONSTRAINTS_PATH: &str = "constraints/v1/set_constraints";
 
 /// Implements an inclusion list flavor
 /// of commit-boost
@@ -107,15 +108,20 @@ impl InclusionBoost {
         inclusion_list: InclusionList,
     ) -> Result<Option<()>, InclusionListBoostError> {
         let url = format!("{}{CONSTRAINTS_PATH}", self.relay_url);
+        println!("{}", url);
 
         let request = InclusionRequest {
-            inclusion_list,
+            message: inclusion_list,
             signature,
         };
+      
+        println!("{}",  serde_json::to_string(&request).unwrap());
 
         tracing::info!(url, payload=?request, "POST request sent");
 
         let response = self.relay_client.post(url).json(&request).send().await?;
+
+        println!("{:?}", response);
 
         let status = response.status();
         let response_bytes = response.bytes().await?;

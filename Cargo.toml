@@ -36,7 +36,7 @@ tree_hash = { git = "https://github.com/eserilev/tree_hash", branch = "alloy-dep
 tree_hash_derive = { git = "https://github.com/eserilev/tree_hash", branch = "alloy-deps"}
 
 reqwest = "0.12"
-hyper = "0.14"
+hyper = { version = "1", features = ["full"] }
 
 # types
 parking_lot = "0.12.1"

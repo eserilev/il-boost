@@ -1,12 +1,32 @@
+chain = "Helder"
+
+[pbs]
+port = 18550
+relays = []
+relay_check = true
+timeout_get_header_ms = 950
+timeout_get_payload_ms = 4000
+timeout_register_validator_ms = 3000
+skip_sigverify = true
+min_bid_eth = 0.0
+
+[headers]
+X-MyCustomHeader = "MyCustomValue"
+
 [signer]
 [signer.loader]
 key_path = "./keys.example.json"
+# keys_path = ""
+# secrets_path = ""
 
-[extra]
-beacon_api = "http://127.0.0.1:50814"
-execution_api = "http://127.0.0.1:50785"
+[metrics]
+prometheus_config = "./docker/prometheus.yml"
+use_grafana = true
 
 [[modules]]
-id = "IL_COMMIT"
-docker_image = "test_il_commit"
+id = "DA_COMMIT"
+docker_image = "test_da_commit"
 sleep_secs = 5
+
+[module]
+id = "DA_COMMIT"
