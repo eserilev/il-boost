@@ -35,6 +35,7 @@ ethereum_serde_utils = "0.5.2"
 # Crypto
 tree_hash = { git = "https://github.com/eserilev/tree_hash", branch = "alloy-deps"}
 tree_hash_derive = { git = "https://github.com/eserilev/tree_hash", branch = "alloy-deps"}
+blst = "0.3.13"
 
 reqwest = "0.12"
 hyper = { version = "1", features = ["full"] }

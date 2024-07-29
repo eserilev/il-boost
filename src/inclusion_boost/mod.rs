@@ -1,23 +1,23 @@
 use std::collections::HashMap;
 
 use alloy::{
-    primitives::B256,
-    rpc::types::{
+    hex::ToHexExt, primitives::Bytes, rpc::types::{
         beacon::{BlsPublicKey, BlsSignature},
         Block,
-    },
+    }
 };
 use cb_common::commit::{client::SignerClient, error::SignerClientError, request::SignRequest};
 use error::InclusionListBoostError;
-use serde::Serialize;
 use tree_hash::TreeHash;
-use types::{InclusionList, InclusionRequest, Transaction};
+use types::{Constraint, InclusionList, InclusionRequest, Transaction};
+
+use ethereum_consensus::deneb::Transaction as BTX;
 
 pub mod error;
 pub mod sidecar;
 pub mod types;
 
-const CONSTRAINTS_PATH: &str = "constraints/v1/set_constraints";
+const CONSTRAINTS_PATH: &str = "eth/v1/builder/set_constraints";
 
 /// Implements an inclusion list flavor
 /// of commit-boost
@@ -27,6 +27,24 @@ pub struct InclusionBoost {
     pub validator_keys: HashMap<usize, BlsPublicKey>,
     pub relay_client: reqwest::Client,
     pub relay_url: String,
+}
+
+fn bytes_to_array(bytes: Bytes) -> [u8; 32] {
+    let mut buffer = [0x0; 32];
+    let bytes_to_copy = bytes.len().min(buffer.len());
+    // Panic-free because bytes_to_copy <= buffer.len()
+    let start_index = buffer.len().saturating_sub(bytes_to_copy);
+    // Panic-free because start_index <= buffer.len()
+    // and bytes_to_copy <= value_bytes.len()
+    buffer
+        .get_mut(start_index..)
+        .expect("start_index <= buffer.len()")
+        .copy_from_slice(
+            bytes.encode_hex().as_bytes()
+                .get(..bytes_to_copy)
+                .expect("bytes_to_copy <= value_byte.len()"),
+        );
+    buffer
 }
 
 impl InclusionBoost {
@@ -50,7 +68,7 @@ impl InclusionBoost {
     pub fn get_censored_transactions(
         transactions: &Vec<Transaction>,
         block: &Block<alloy::rpc::types::Transaction>,
-    ) -> Vec<B256> {
+    ) -> Vec<Constraint> {
         let mut censored_transactions = vec![];
         let mut gas_left = block.header.gas_limit - block.header.gas_used;
 
@@ -58,7 +76,9 @@ impl InclusionBoost {
             if let Some(max_priority_fee_per_gas) = tx.max_priority_fee_per_gas {
                 if max_priority_fee_per_gas > 0 && gas_left > 0 {
                     gas_left -= tx.gas;
-                    censored_transactions.push(tx.tx_hash);
+                    censored_transactions.push(Constraint {
+                        tx: bytes_to_array(tx.bytes.clone()),
+                    });
                 }
             }
         }
@@ -114,8 +134,8 @@ impl InclusionBoost {
             message: inclusion_list,
             signature,
         };
-      
-        println!("{}",  serde_json::to_string(&request).unwrap());
+
+        println!("{}", serde_json::to_string(&request).unwrap());
 
         tracing::info!(url, payload=?request, "POST request sent");
 
@@ -128,6 +148,7 @@ impl InclusionBoost {
 
         if !status.is_success() {
             let err = String::from_utf8_lossy(&response_bytes).into_owned();
+            println!("{}", err);
             tracing::error!(err, "failed to get signature");
             return Ok(None);
         }

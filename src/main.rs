@@ -4,9 +4,9 @@ use cb_common::{
     config::{load_module_config, load_pbs_custom_config, StaticModuleConfig},
     utils::initialize_tracing_log,
 };
-use serde::Deserialize;
 use cb_pbs::{PbsService, PbsState};
 use config::InclusionListConfig;
+use serde::Deserialize;
 
 use inclusion_boost::{
     error::InclusionListBoostError, sidecar::InclusionSideCar, types::InclusionBoostCache,
@@ -61,15 +61,10 @@ async fn main() -> Result<(), InclusionListBoostError> {
     Ok(())
 }
 
-
 fn parse_toml() {
-    let config_str = fs::read_to_string("./config.toml")
-        .expect("Failed to read config file");
+    let config_str = fs::read_to_string("./config.toml").expect("Failed to read config file");
 
-    println!("{:?}", config_str);
-    
-    let config: MainConfig = toml::from_str(&config_str)
-        .expect("Failed to parse config file");
+    let config: MainConfig = toml::from_str(&config_str).expect("Failed to parse config file");
 
     std::env::set_var("CB_MODULE_ID", config.modules.first().unwrap().id.clone());
     std::env::set_var("CB_SIGNER_JWT", config.modules.first().unwrap().id.clone());
