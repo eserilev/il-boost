@@ -1,0 +1,34 @@
+chain = "Holesky"
+
+[pbs]
+port = 18550
+relays = []
+relay_check = true
+timeout_get_header_ms = 950
+timeout_get_payload_ms = 4000
+timeout_register_validator_ms = 3000
+skip_sigverify = true
+min_bid_eth = 0.0
+beacon_api = "http://localhost:4000"
+execution_api = "http://localhost:8545"
+relay = "http://relay.url"
+
+[headers]
+X-MyCustomHeader = "MyCustomValue"
+
+[signer]
+[signer.loader]
+keys_path = "../../../Ethereum/Clients/go-ethereum/assigned-data/keys"
+secrets_path = "../../../Ethereum/Clients/go-ethereum/assigned-data/secrets"
+
+[metrics]
+prometheus_config = "./docker/prometheus.yml"
+use_grafana = true
+
+[[modules]]
+id = "IL_COMMIT"
+docker_image = "il_boost"
+sleep_secs = 5
+beacon_api = "http://localhost:4000"
+execution_api = "http://localhost:8545"
+relay = "http://relay.url"

@@ -71,11 +71,12 @@ impl InclusionBoost {
     ) -> Vec<Constraint> {
         let mut censored_transactions = vec![];
         let mut gas_left = block.header.gas_limit - block.header.gas_used;
-
+        
         for tx in transactions {
             if let Some(max_priority_fee_per_gas) = tx.max_priority_fee_per_gas {
                 if max_priority_fee_per_gas > 0 && gas_left > 0 {
-                    gas_left -= tx.gas;
+                    gas_left = gas_left.saturating_sub(tx.gas);
+              
                     censored_transactions.push(Constraint {
                         tx: bytes_to_array(tx.bytes.clone()),
                     });
@@ -94,16 +95,33 @@ impl InclusionBoost {
         validator_index: usize,
         inclusion_list: InclusionList,
     ) -> Result<Option<()>, InclusionListBoostError> {
+
+        tracing::info!(
+            validator_index,
+            "Getting validator key"
+        );
+
+        println!("val keys {:?}", self.validator_keys);
+
         let Some(validator_key) = self.validator_keys.get(&validator_index) else {
             return Ok(None);
         };
+
 
         let signature = self
             .sign_inclusion_list(&inclusion_list, *validator_key)
             .await?;
 
+        tracing::info!(
+            "Inclusion list signed"
+        );
+
         self.post_inclusion_request(signature, inclusion_list)
             .await?;
+
+        tracing::info!(
+            "Inclusion list sent"
+        );
 
         Ok(Some(()))
     }
@@ -115,7 +133,7 @@ impl InclusionBoost {
         validator_key: BlsPublicKey,
     ) -> Result<BlsSignature, SignerClientError> {
         let inclusion_list_root = inclusion_list.tree_hash_root();
-        let sign_request = SignRequest::builder(self.module_id.clone(), validator_key)
+        let sign_request = SignRequest::builder(validator_key)
             .with_root(inclusion_list_root.into());
 
         self.signer_client.request_signature(&sign_request).await

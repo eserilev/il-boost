@@ -7,13 +7,13 @@ use alloy::{
     transports::http::Http,
 };
 
-use cb_common::config::StartModuleConfig;
+use cb_common::config::StartCommitModuleConfig;
 use futures::StreamExt;
 use mev_share_sse::EventClient;
 
 use crate::{
     config::InclusionListConfig, inclusion_boost::types::InclusionList,
-    lookahead::LookaheadProvider,
+    lookahead::{error::LookaheadError, LookaheadProvider},
 };
 
 use super::{
@@ -31,13 +31,13 @@ pub struct InclusionSideCar {
 
 impl InclusionSideCar {
     pub fn new(
-        config: StartModuleConfig<InclusionListConfig>,
+        config: StartCommitModuleConfig<InclusionListConfig>,
         eth_provider: RootProvider<alloy::transports::http::Http<reqwest::Client>>,
         cache: Arc<InclusionBoostCache>,
         mev_port: u16,
-    ) -> Self {
+    ) -> Self {        
         let inclusion_boost = InclusionBoost::new(
-            config.id,
+            config.id.to_string(),
             config.signer_client,
             HashMap::new(),
             mev_port.to_string(), // TODO get from config
@@ -53,6 +53,15 @@ impl InclusionSideCar {
 
     pub async fn run(&self) -> Result<(), InclusionListBoostError> {
         let lookahead_provider = LookaheadProvider::new(&self.il_config.beacon_api);
+
+        println!("FETCH PUBKEYS");
+        let pubkeys = self.inclusion_boost.signer_client.get_pubkeys().await?;
+
+        println!("FETCHED");
+        for p in pubkeys.consensus {
+            println!("{}", p);
+            get_validator_index(&self.il_config.beacon_api, &p.to_string()).await;
+        }
 
         let mut lookahead = lookahead_provider.get_current_lookahead().await?;
         let lookahead_size = lookahead.len();
@@ -80,8 +89,13 @@ impl InclusionSideCar {
             };
 
             // TODO check if next slots proposer is ours
+            let block_number = self.get_block_number_by_slot(head_event.slot - 1).await?;
 
-            let Some(latest_block) = self.get_latest_block().await? else {
+            let Some(block_number) = block_number else {
+                continue;
+            };
+
+            let Some(latest_block) = self.get_block_by_number(block_number).await? else {
                 continue;
             };
 
@@ -105,6 +119,10 @@ impl InclusionSideCar {
                 continue;
             };
 
+            tracing::info!(
+                "Submitting inclusion list to relay"
+            );
+
             self.inclusion_boost
                 .submit_inclusion_list_to_relay(next_proposer.validator_index, inclusion_list)
                 .await?;
@@ -113,11 +131,29 @@ impl InclusionSideCar {
         Ok(())
     }
 
-    async fn get_latest_block(&self) -> Result<Option<Block>, InclusionListBoostError> {
+    async fn get_block_by_number(&self, block_number: u64) -> Result<Option<Block>, InclusionListBoostError> {
         self.eth_provider
-            .get_block(BlockId::latest(), BlockTransactionsKind::Full)
+            .get_block_by_number(alloy::eips::BlockNumberOrTag::Number(block_number), true)
             .await
             .map_err(|e| e.into())
+    }
+
+    async fn get_block_number_by_slot(&self, slot: u64) -> Result<Option<u64>, InclusionListBoostError> {
+
+        tracing::info!(slot, "Get block number by slot");
+
+        let url = format!("{}/eth/v1/beacon/blocks/{}", self.il_config.beacon_api, slot);
+        let res = reqwest::get(url).await?;
+        let json: serde_json::Value = serde_json::from_str(&res.text().await?)?;
+        
+        let Some(block_number) = json.pointer("/data/message/body/execution_payload/block_number") else {
+            return Ok(None);
+        };
+
+        let Some(block_number_str) = block_number.as_str() else {
+            return Ok(None);
+        };
+        Ok(Some(block_number_str.parse::<u64>()?))
     }
 
     /// Builds an inclusion list for slot N by comparing pending transactions in the mem pool
@@ -163,4 +199,14 @@ impl InclusionSideCar {
             censored_transactions,
         )))
     }
+}
+
+
+async fn get_validator_index(beacon_url: &str, validator_pubkey: &str) -> Result<(), LookaheadError>{
+    let url = format!("{beacon_url}/eth/v1/beacon/states/heaad/validators?id={validator_pubkey}");
+    let res = reqwest::get(url).await?;
+    let json: serde_json::Value = serde_json::from_str(&res.text().await?)?;
+    println!("{json}");
+
+    Ok(())
 }

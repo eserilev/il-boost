@@ -6,16 +6,12 @@ mod test {
         routing::{post, IntoMakeService},
         Json, Router,
     };
-    use hyper::StatusCode;
-    use reth_transaction_pool::{
-        test_utils::{MockTransactionFactory, TestPoolBuilder},
-        TransactionOrigin, TransactionPool,
-    };
-    use std::{collections::HashMap, net::SocketAddr};
-    use tokio::{net::TcpListener, task::JoinHandle};
-    use tree_hash::TreeHash;
-
     use cb_common::commit::client::SignerClient;
+    use reqwest::StatusCode;
+    use reth_transaction_pool::{test_utils::{MockTransactionFactory, TestPoolBuilder}, TransactionOrigin, TransactionPool};
+    use std::{collections::HashMap, net::SocketAddr};
+    use tokio::net::TcpListener;
+
 
     use crate::inclusion_boost::{
         types::{InclusionList, Transaction},
@@ -52,7 +48,7 @@ mod test {
     #[tokio::test(flavor = "multi_thread")]
     pub async fn build_mock_inclusion_list_request() {
         // TODO load via config
-        let mock_signer_client = SignerClient::new(format!("127.0.0.1:20000"), "DA_COMMIT");
+        let mock_signer_client = SignerClient::new(format!("127.0.0.1:20000"), "DA_COMMIT").unwrap();
 
         let mock_relay = MockRelay::new(33950).await;
 

@@ -1,4 +1,4 @@
-use std::str::Utf8Error;
+use std::{num::ParseIntError, str::Utf8Error};
 
 use alloy::transports::TransportErrorKind;
 use cb_common::commit::error::SignerClientError;
@@ -15,6 +15,8 @@ pub enum InclusionListBoostError {
     SignerClientError(SignerClientError),
     // Utf8Error(Utf8Error),
     LookaheadError(LookaheadError),
+    ParseIntError(ParseIntError),
+    Serde(serde_json::Error),
 }
 
 impl From<String> for InclusionListBoostError {
@@ -58,6 +60,20 @@ impl From<LookaheadError> for InclusionListBoostError {
         InclusionListBoostError::LookaheadError(value)
     }
 }
+
+
+impl From<ParseIntError> for InclusionListBoostError {
+    fn from(value: ParseIntError) -> Self {
+        InclusionListBoostError::ParseIntError(value)
+    }
+}
+
+impl From<serde_json::Error> for InclusionListBoostError {
+    fn from(value: serde_json::Error) -> Self {
+        InclusionListBoostError::Serde(value)
+    }
+}
+
 
 // impl From<Utf8Error> for InclusionListBoostError {
 //     fn from(value: Utf8Error) -> Self {

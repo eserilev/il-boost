@@ -1,0 +1,88 @@
+services:
+  il-boost:
+    image: il-boost
+    container_name: il-boost
+    environment:
+      CB_MODULE_ID: DA_COMMIT
+      CB_CONFIG: ${CB_CONFIG}
+      CB_SIGNER_JWT: ${CB_JWT_DA_COMMIT}
+      METRICS_SERVER: 10000
+      SIGNER_SERVER: cb_signer:20000
+      ROLLING_DURATION: daily
+      RUST_LOG: debug
+      MAX_LOG_FILES: 30
+    volumes:
+    - ./cb-config.toml:/cb-config.toml:ro
+    - ./logs:/var/logs/commit-boost
+    networks:
+    - monitoring_network
+    - signer_network
+    depends_on:
+    - cb_signer
+  cb_signer:
+    image: commitboost_signer
+    container_name: cb_signer
+    environment:
+      CB_CONFIG: ${CB_CONFIG}
+      CB_JWTS: ${CB_JWTS}
+      METRICS_SERVER: 10000
+      SIGNER_SERVER: 20000
+      ROLLING_DURATION: daily
+      RUST_LOG: debug
+      MAX_LOG_FILES: 30
+      CB_SIGNER_FILE: /keys.json
+    volumes:
+    - ./cb-config.toml:/cb-config.toml:ro
+    - ./logs:/var/logs/commit-boost
+    networks:
+    - monitoring_network
+    - signer_network
+  # cb_prometheus:
+  #   image: prom/prometheus:latest
+  #   container_name: cb_prometheus
+  #   ports:
+  #   - 9090:9090
+  #   volumes:
+  #   - ./docker/prometheus.yml:/etc/prometheus/prometheus.yml
+  #   - ./targets.json:/etc/prometheus/targets.json
+  #   - prometheus-data:/prometheus
+  #   networks:
+  #   - monitoring_network
+  # cb_grafana:
+  #   image: grafana/grafana:latest
+  #   container_name: cb_grafana
+  #   ports:
+  #   - 3000:3000
+  #   environment:
+  #   - GF_SECURITY_ADMIN_PASSWORD=admin
+  #   volumes:
+  #   - ./grafana/dashboards:/etc/grafana/provisioning/dashboards
+  #   - ./grafana/datasources:/etc/grafana/provisioning/datasources
+  #   - grafana-data:/var/lib/grafana
+  #   networks:
+  #   - monitoring_network
+  #   depends_on:
+  #   - cb_prometheus
+  #   logging:
+  #     driver: none
+  # cb_cadvisor:
+  #   image: gcr.io/cadvisor/cadvisor
+  #   container_name: cb_cadvisor
+  #   ports:
+  #   - 8080:8080
+  #   volumes:
+  #   - /var/run/docker.sock:/var/run/docker.sock:ro
+  #   - /sys:/sys:ro
+  #   - /var/lib/docker/:/var/lib/docker:ro
+  #   networks:
+  #   - monitoring_network
+volumes:
+  prometheus-data:
+    driver: local
+  grafana-data:
+    driver: local
+networks:
+  monitoring_network:
+    driver: bridge
+  signer_network:
+    driver: bridge

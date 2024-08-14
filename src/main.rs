@@ -1,7 +1,7 @@
 use std::{collections::HashMap, fs, sync::Arc};
 
 use cb_common::{
-    config::{load_module_config, load_pbs_custom_config, StaticModuleConfig},
+    config::{load_pbs_custom_config, load_commit_module_config, StaticModuleConfig},
     utils::initialize_tracing_log,
 };
 use cb_pbs::{PbsService, PbsState};
@@ -29,11 +29,10 @@ mod types;
 
 #[tokio::main]
 async fn main() -> Result<(), InclusionListBoostError> {
-    initialize_tracing_log();
-
-    parse_toml();
-
-    let config = load_module_config::<InclusionListConfig>().expect("failed to load config");
+    // parse_toml();
+    let config = load_commit_module_config::<InclusionListConfig>().expect("failed to load config");
+    initialize_tracing_log(&config.id);
+    println!("{}", config.extra.execution_api);
     let eth_provider: RootProvider<Http<reqwest::Client>> =
         ProviderBuilder::new().on_http(config.extra.execution_api.parse().unwrap());
     let cache = Arc::new(InclusionBoostCache {
@@ -42,6 +41,7 @@ async fn main() -> Result<(), InclusionListBoostError> {
     });
 
     let pbs_module = load_pbs_custom_config().expect("failed to load pbs config");
+
 
     let state = PbsState::new(pbs_module);
 
@@ -62,7 +62,7 @@ async fn main() -> Result<(), InclusionListBoostError> {
 }
 
 fn parse_toml() {
-    let config_str = fs::read_to_string("./config.toml").expect("Failed to read config file");
+    let config_str = fs::read_to_string("./cb-config.toml").expect("Failed to read config file");
 
     let config: MainConfig = toml::from_str(&config_str).expect("Failed to parse config file");
 

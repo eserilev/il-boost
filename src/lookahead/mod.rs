@@ -37,18 +37,18 @@ impl LookaheadProvider {
     }
 }
 
+
+
 async fn get_slot(beacon_url: &str, slot: &str) -> Result<Option<u64>, LookaheadError> {
     let url = format!("{}/eth/v1/beacon/headers/{}", beacon_url, slot);
-
     let res = reqwest::get(url).await?;
     let json: serde_json::Value = serde_json::from_str(&res.text().await?)?;
-
+    
     let Some(slot) = json.pointer("/data/header/message/slot") else {
         return Ok(None);
     };
     let Some(slot_str) = slot.as_str() else {
         return Ok(None);
     };
-
     Ok(Some(slot_str.parse::<u64>()?))
 }
