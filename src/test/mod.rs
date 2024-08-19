@@ -17,7 +17,7 @@ mod test {
         types::{InclusionList, Transaction},
         InclusionBoost,
     };
-    const ID: &str = "DA_COMMIT";
+    const ID: &str = "IL_COMMIT";
     struct MockRelay {
         tpc_listener: TcpListener,
         service: IntoMakeService<Router>,
@@ -29,7 +29,6 @@ mod test {
 
             // Define an address to bind the server to
             let addr = SocketAddr::from(([127, 0, 0, 1], port));
-            println!("Listening on http://{}", addr);
 
             let listener = tokio::net::TcpListener::bind(addr).await.unwrap();
             let service = app.into_make_service();
@@ -48,7 +47,7 @@ mod test {
     #[tokio::test(flavor = "multi_thread")]
     pub async fn build_mock_inclusion_list_request() {
         // TODO load via config
-        let mock_signer_client = SignerClient::new(format!("127.0.0.1:20000"), "DA_COMMIT").unwrap();
+        let mock_signer_client = SignerClient::new(format!("127.0.0.1:20000"), "IL_COMMIT").unwrap();
 
         let mock_relay = MockRelay::new(33950).await;
 
@@ -90,14 +89,12 @@ mod test {
 
         assert_eq!(transactions.len(), 1);
 
-        let censored_transactions =
-            InclusionBoost::get_censored_transactions(&transactions, &mock_previous_block);
+        let filtered_transactions =
+            InclusionBoost::get_filtered_transactions(&transactions, &mock_previous_block);
 
-        assert_eq!(censored_transactions.len(), 1);
+        assert_eq!(filtered_transactions.len(), 1);
 
-        println!("{:?}", censored_transactions);
-
-        let mock_inclusion_list = InclusionList::new(1, 1, censored_transactions);
+        let mock_inclusion_list = InclusionList::new(1, 1, filtered_transactions);
 
         let response = inclusion_module
             .submit_inclusion_list_to_relay(1, mock_inclusion_list)

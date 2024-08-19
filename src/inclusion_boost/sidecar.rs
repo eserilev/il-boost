@@ -1,4 +1,4 @@
-use std::{collections::HashMap, sync::Arc};
+use std::{collections::HashMap, sync::Arc, thread::sleep, time::Duration};
 
 use alloy::{
     eips::BlockId,
@@ -53,13 +53,10 @@ impl InclusionSideCar {
 
     pub async fn run(&self) -> Result<(), InclusionListBoostError> {
         let lookahead_provider = LookaheadProvider::new(&self.il_config.beacon_api);
-
-        println!("FETCH PUBKEYS");
+        sleep(Duration::from_secs(60));
         let pubkeys = self.inclusion_boost.signer_client.get_pubkeys().await?;
 
-        println!("FETCHED");
         for p in pubkeys.consensus {
-            println!("{}", p);
             get_validator_index(&self.il_config.beacon_api, &p.to_string()).await;
         }
 
@@ -94,6 +91,7 @@ impl InclusionSideCar {
             let Some(block_number) = block_number else {
                 continue;
             };
+
 
             let Some(latest_block) = self.get_block_by_number(block_number).await? else {
                 continue;
@@ -135,7 +133,9 @@ impl InclusionSideCar {
         self.eth_provider
             .get_block_by_number(alloy::eips::BlockNumberOrTag::Number(block_number), true)
             .await
-            .map_err(|e| e.into())
+            .map_err(|e| {
+                e.into()
+            })
     }
 
     async fn get_block_number_by_slot(&self, slot: u64) -> Result<Option<u64>, InclusionListBoostError> {
@@ -181,32 +181,31 @@ impl InclusionSideCar {
             pending_txs.extend(transactions);
         }
 
-        let censored_transactions =
-            InclusionBoost::get_censored_transactions(&pending_txs, latest_block);
+        let filtered_transactions =
+            InclusionBoost::get_filtered_transactions(&pending_txs, latest_block);
 
         tracing::info!(
-            transaction_count = censored_transactions.len(),
-            "Identified a list of potentially censored transactions"
+            transaction_count = filtered_transactions.len(),
+            "Identified a list of potentially filtered transactions"
         );
 
-        if censored_transactions.len() == 0 {
+        if filtered_transactions.len() == 0 {
             return Ok(None);
         };
 
         Ok(Some(InclusionList::new(
             slot,
             validator_index,
-            censored_transactions,
+            filtered_transactions,
         )))
     }
 }
 
 
 async fn get_validator_index(beacon_url: &str, validator_pubkey: &str) -> Result<(), LookaheadError>{
-    let url = format!("{beacon_url}/eth/v1/beacon/states/heaad/validators?id={validator_pubkey}");
+    let url = format!("{beacon_url}/eth/v1/beacon/states/head/validators?id={validator_pubkey}");
     let res = reqwest::get(url).await?;
     let json: serde_json::Value = serde_json::from_str(&res.text().await?)?;
-    println!("{json}");
 
     Ok(())
 }

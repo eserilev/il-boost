@@ -31,8 +31,8 @@ mod types;
 async fn main() -> Result<(), InclusionListBoostError> {
     // parse_toml();
     let config = load_commit_module_config::<InclusionListConfig>().expect("failed to load config");
-    initialize_tracing_log(&config.id);
-    println!("{}", config.extra.execution_api);
+    let _ = initialize_tracing_log(&config.id);
+  
     let eth_provider: RootProvider<Http<reqwest::Client>> =
         ProviderBuilder::new().on_http(config.extra.execution_api.parse().unwrap());
     let cache = Arc::new(InclusionBoostCache {
@@ -40,21 +40,21 @@ async fn main() -> Result<(), InclusionListBoostError> {
         inclusion_list_cache: Arc::new(RwLock::new(HashMap::new())),
     });
 
-    let pbs_module = load_pbs_custom_config().expect("failed to load pbs config");
+    let (pbs_module, pbs_module_custom_data) = load_pbs_custom_config::<InclusionListConfig>().expect("failed to load pbs config");
 
-
-    let state = PbsState::new(pbs_module);
+    let state = PbsState::new(pbs_module).with_data(pbs_module_custom_data);
 
     let inclusion_sidecar =
         InclusionSideCar::new(config, eth_provider, cache, state.config.pbs_config.port);
 
     let pbs_server = tokio::spawn(async move {
-        PbsService::run::<InclusionListConfig, InclusionBoostApi>(state).await;
+        let _ = PbsService::run::<InclusionListConfig, InclusionBoostApi>(state).await;
     });
 
     let il_sidecar = tokio::spawn(async move {
         let _ = inclusion_sidecar.run().await;
     });
+
 
     let _ = tokio::join!(pbs_server, il_sidecar);
 

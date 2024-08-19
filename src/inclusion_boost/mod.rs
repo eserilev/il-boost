@@ -63,13 +63,13 @@ impl InclusionBoost {
         }
     }
 
-    /// Calculate which transactions may be censored from a list of transactions by
+    /// Calculate which transactions may be filtered from a list of transactions by
     /// comparing if any of these transactions could have made it into `block`
-    pub fn get_censored_transactions(
+    pub fn get_filtered_transactions(
         transactions: &Vec<Transaction>,
         block: &Block<alloy::rpc::types::Transaction>,
     ) -> Vec<Constraint> {
-        let mut censored_transactions = vec![];
+        let mut filtered_transactions = vec![];
         let mut gas_left = block.header.gas_limit - block.header.gas_used;
         
         for tx in transactions {
@@ -77,14 +77,14 @@ impl InclusionBoost {
                 if max_priority_fee_per_gas > 0 && gas_left > 0 {
                     gas_left = gas_left.saturating_sub(tx.gas);
               
-                    censored_transactions.push(Constraint {
+                    filtered_transactions.push(Constraint {
                         tx: bytes_to_array(tx.bytes.clone()),
                     });
                 }
             }
         }
 
-        censored_transactions
+        filtered_transactions
     }
 
     /// Submit the inclusion list to the relay
@@ -101,7 +101,6 @@ impl InclusionBoost {
             "Getting validator key"
         );
 
-        println!("val keys {:?}", self.validator_keys);
 
         let Some(validator_key) = self.validator_keys.get(&validator_index) else {
             return Ok(None);
@@ -146,27 +145,23 @@ impl InclusionBoost {
         inclusion_list: InclusionList,
     ) -> Result<Option<()>, InclusionListBoostError> {
         let url = format!("{}{CONSTRAINTS_PATH}", self.relay_url);
-        println!("{}", url);
 
         let request = InclusionRequest {
             message: inclusion_list,
             signature,
         };
 
-        println!("{}", serde_json::to_string(&request).unwrap());
 
         tracing::info!(url, payload=?request, "POST request sent");
 
         let response = self.relay_client.post(url).json(&request).send().await?;
 
-        println!("{:?}", response);
 
         let status = response.status();
         let response_bytes = response.bytes().await?;
 
         if !status.is_success() {
             let err = String::from_utf8_lossy(&response_bytes).into_owned();
-            println!("{}", err);
             tracing::error!(err, "failed to get signature");
             return Ok(None);
         }

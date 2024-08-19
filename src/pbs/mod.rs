@@ -42,14 +42,13 @@ async fn handle_post_constraints(
     _: HeaderMap,
     Json(inclusion_list): Json<InclusionList>,
 ) -> Response<Body> {
-    let url = format!("{}constraints", state.config.extra.relay);
     // TODO unwrap
     let response = state
         .relays()
         .first()
         .unwrap()
         .client
-        .post(url)
+        .post("test")
         .json(&inclusion_list)
         .send()
         .await

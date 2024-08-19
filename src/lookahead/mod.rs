@@ -21,8 +21,7 @@ impl LookaheadProvider {
     pub async fn get_current_lookahead(&self) -> Result<Vec<ProposerDuty>, LookaheadError> {
         tracing::info!("Getting current lookahead duties");
 
-        let current_slot = get_slot(&self.url, "head")
-            .await?
+        let current_slot = get_slot(&self.url, "head").await?
             .ok_or(LookaheadError::FailedLookahead)?;
 
         let epoch = current_slot / 32;

@@ -9,17 +9,32 @@ timeout_get_payload_ms = 4000
 timeout_register_validator_ms = 3000
 skip_sigverify = true
 min_bid_eth = 0.0
-beacon_api = "http://localhost:4000"
-execution_api = "http://localhost:8545"
+beacon_api = "http://host.docker.internal:4000"
+execution_api = "http://host.docker.internal:8545"
 relay = "http://relay.url"
+
+[[relays]]
+# Relay ID to use in telemetry
+# OPTIONAL, DEFAULT: URL hostname
+id = "example-relay"
+# Relay URL in the format scheme://pubkey@host
+url = "http://0xa1cec75a3f0661e99299274182938151e8433c61a19222347ea1313d839229cb4ce4e3e5aa2bdeb71c8fcf1b084963c2@abc.xyz"
+# Headers to send with each request for this relay
+# OPTIONAL
+headers = { X-MyCustomHeader = "MyCustomValue" }
+# Whether to enable timing games, as tuned by `target_first_request_ms` and `frequency_get_header_ms`.
+# These values should be carefully chosen for each relay, as each relay has different latency and timing games setups.
+# They should only be used by advanced users, and if mis-configured can result in unforeseen effects, e.g. fetching a lower header value, 
+# or getting a temporary IP ban.
 
 [headers]
 X-MyCustomHeader = "MyCustomValue"
 
 [signer]
+docker_image = "commitboost_signer"
 [signer.loader]
-keys_path = "../../../Ethereum/Clients/go-ethereum/assigned-data/keys"
-secrets_path = "../../../Ethereum/Clients/go-ethereum/assigned-data/secrets"
+keys_path = "./keys"
+secrets_path = "./secrets"
 
 [metrics]
 prometheus_config = "./docker/prometheus.yml"
@@ -27,8 +42,9 @@ use_grafana = true
 
 [[modules]]
 id = "IL_COMMIT"
+type = "commit"
 docker_image = "il_boost"
 sleep_secs = 5
-beacon_api = "http://localhost:4000"
-execution_api = "http://localhost:8545"
+beacon_api = "http://host.docker.internal:4000"
+execution_api = "http://host.docker.internal:8545"
 relay = "http://relay.url"
