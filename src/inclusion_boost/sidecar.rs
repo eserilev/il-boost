@@ -34,13 +34,12 @@ impl InclusionSideCar {
         config: StartCommitModuleConfig<InclusionListConfig>,
         eth_provider: RootProvider<alloy::transports::http::Http<reqwest::Client>>,
         cache: Arc<InclusionBoostCache>,
-        mev_port: u16,
     ) -> Self {        
         let inclusion_boost = InclusionBoost::new(
             config.id.to_string(),
             config.signer_client,
             HashMap::new(),
-            mev_port.to_string(), // TODO get from config
+            config.extra.clone().relay, // TODO get from config
         );
 
         Self {
@@ -51,16 +50,27 @@ impl InclusionSideCar {
         }
     }
 
-    pub async fn run(&self) -> Result<(), InclusionListBoostError> {
+    pub async fn run(&mut self) -> Result<(), InclusionListBoostError> {
         let lookahead_provider = LookaheadProvider::new(&self.il_config.beacon_api);
         sleep(Duration::from_secs(60));
         let pubkeys = self.inclusion_boost.signer_client.get_pubkeys().await?;
 
         for p in pubkeys.consensus {
-            get_validator_index(&self.il_config.beacon_api, &p.to_string()).await;
+            let index = get_validator_index(&self.il_config.beacon_api, &p.to_string()).await?;
+            if let Some(validator_index) = index {
+                println!("validator_index {}", validator_index);
+                self.inclusion_boost.validator_keys.insert(validator_index as usize, p);
+            }
         }
 
         let mut lookahead = lookahead_provider.get_current_lookahead().await?;
+        let mut next_lookahead = lookahead_provider.get_next_epoch_lookahead().await?;
+
+        for future_proposer in next_lookahead {
+            let res = self.inclusion_boost.delegate_inclusion_list_authority(future_proposer.validator_index, future_proposer.slot).await;
+            println!("{:?}", res);
+        }
+       
         let lookahead_size = lookahead.len();
         tracing::info!(lookahead_size, "Initial proposer lookahead fetched");
 
@@ -73,6 +83,11 @@ impl InclusionSideCar {
 
             if head_event.epoch_transition {
                 lookahead = lookahead_provider.get_current_lookahead().await?;
+                next_lookahead = lookahead_provider.get_next_epoch_lookahead().await?;
+                for future_proposer in next_lookahead {
+                    let res = self.inclusion_boost.delegate_inclusion_list_authority(future_proposer.validator_index, future_proposer.slot).await;
+                    println!("{:?}", res);
+                }
                 tracing::info!("Epoch transition, fetched new proposer lookahead...");
             }
 
@@ -116,10 +131,6 @@ impl InclusionSideCar {
             else {
                 continue;
             };
-
-            tracing::info!(
-                "Submitting inclusion list to relay"
-            );
 
             self.inclusion_boost
                 .submit_inclusion_list_to_relay(next_proposer.validator_index, inclusion_list)
@@ -189,9 +200,9 @@ impl InclusionSideCar {
             "Identified a list of potentially filtered transactions"
         );
 
-        if filtered_transactions.len() == 0 {
-            return Ok(None);
-        };
+        // if filtered_transactions.len() == 0 {
+        //     return Ok(None);
+        // };
 
         Ok(Some(InclusionList::new(
             slot,
@@ -202,10 +213,18 @@ impl InclusionSideCar {
 }
 
 
-async fn get_validator_index(beacon_url: &str, validator_pubkey: &str) -> Result<(), LookaheadError>{
+async fn get_validator_index(beacon_url: &str, validator_pubkey: &str) -> Result<Option<u64>, LookaheadError>{
     let url = format!("{beacon_url}/eth/v1/beacon/states/head/validators?id={validator_pubkey}");
     let res = reqwest::get(url).await?;
     let json: serde_json::Value = serde_json::from_str(&res.text().await?)?;
 
-    Ok(())
+    let Some(validator_index) = json.pointer("/data/0/index") else {
+        return Ok(None);
+    };
+
+    let Some(validator_index_str) = validator_index.as_str() else {
+        return Ok(None);
+    };
+
+    Ok(Some(validator_index_str.parse::<u64>()?))
 }

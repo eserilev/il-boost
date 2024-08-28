@@ -1,4 +1,4 @@
-use std::collections::HashMap;
+use std::{collections::HashMap, time::Duration};
 
 use alloy::{
     hex::ToHexExt, primitives::Bytes, rpc::types::{
@@ -9,15 +9,14 @@ use alloy::{
 use cb_common::commit::{client::SignerClient, error::SignerClientError, request::SignRequest};
 use error::InclusionListBoostError;
 use tree_hash::TreeHash;
-use types::{Constraint, InclusionList, InclusionRequest, Transaction};
-
-use ethereum_consensus::deneb::Transaction as BTX;
+use types::{Constraint, InclusionList, InclusionListDelegateMessage, InclusionListDelegateSignedMessage, InclusionRequest, Transaction};
 
 pub mod error;
 pub mod sidecar;
 pub mod types;
 
-const CONSTRAINTS_PATH: &str = "eth/v1/builder/set_constraints";
+const CONSTRAINTS_PATH: &str = "/eth/v1/builder/set_constraints";
+const DELEGATE_PATH: &str = "/eth/v1/builder/elect_preconfer";
 
 /// Implements an inclusion list flavor
 /// of commit-boost
@@ -80,11 +79,51 @@ impl InclusionBoost {
                     filtered_transactions.push(Constraint {
                         tx: bytes_to_array(tx.bytes.clone()),
                     });
+                    tracing::info!(
+                        tx_hash = ?tx.tx_hash,
+                        "Added transaction to inclusion list"
+                    );
                 }
             }
         }
 
         filtered_transactions
+    }
+
+    pub async fn delegate_inclusion_list_authority(
+        &self,
+        validator_index: usize,
+        slot: u64,
+    ) -> Result<Option<()>, InclusionListBoostError>{
+        let Some(validator_key) = self.validator_keys.get(&validator_index) else {
+            return Ok(None);
+        };
+
+        tracing::info!(
+            validator_index,
+            slot,
+            "Delegating inclusion list building responsibilities to IL Boost"
+        );
+
+        let message = InclusionListDelegateMessage {
+            preconfer_pubkey: validator_key.clone(),
+            slot_number: slot,
+            chain_id: 7014190335,
+            gas_limit: u64::MAX,
+        };
+
+        let message_root = message.tree_hash_root();
+        let sign_request = SignRequest::builder(validator_key.clone())
+            .with_root(message_root.into());
+
+        let signature = self.signer_client.request_signature(&sign_request).await?;
+
+        let signed_message = InclusionListDelegateSignedMessage {
+            message,
+            signature
+        };
+
+        self.post_inclusion_delegate_request(signed_message).await
     }
 
     /// Submit the inclusion list to the relay
@@ -96,15 +135,14 @@ impl InclusionBoost {
         inclusion_list: InclusionList,
     ) -> Result<Option<()>, InclusionListBoostError> {
 
-        tracing::info!(
-            validator_index,
-            "Getting validator key"
-        );
-
-
         let Some(validator_key) = self.validator_keys.get(&validator_index) else {
             return Ok(None);
         };
+
+        tracing::info!(
+            validator_index,
+            "Submitting inclusion list to relay"
+        );
 
 
         let signature = self
@@ -115,8 +153,11 @@ impl InclusionBoost {
             "Inclusion list signed"
         );
 
-        self.post_inclusion_request(signature, inclusion_list)
-            .await?;
+        match self.post_inclusion_request(signature, inclusion_list)
+            .await {
+                Ok(res) => println!("{:?}", res),
+                Err(e) => return Err(e)
+            };
 
         tracing::info!(
             "Inclusion list sent"
@@ -138,6 +179,35 @@ impl InclusionBoost {
         self.signer_client.request_signature(&sign_request).await
     }
 
+    async fn post_inclusion_delegate_request(
+        &self,
+        signed_message: InclusionListDelegateSignedMessage
+    ) -> Result<Option<()>, InclusionListBoostError> {
+        let url = format!("{}{DELEGATE_PATH}", self.relay_url);
+
+        tracing::info!(url, payload=?signed_message, "POST request sent");
+
+        let response = match self.relay_client.post(url).timeout(Duration::from_secs(10)).json(&signed_message).send().await {
+            Ok(res) => res,
+            Err(e) => {
+                println!("{:?}", e);
+                return Err(e.into())
+            }
+        };
+
+
+        let status = response.status();
+        let response_bytes = response.bytes().await?;
+
+        if !status.is_success() {
+            let err = String::from_utf8_lossy(&response_bytes).into_owned();
+            tracing::error!(err, "failed to get signature");
+            return Ok(None);
+        }
+
+        Ok(Some(()))
+    }
+
     /// Post a signed inclusion list to a relay
     async fn post_inclusion_request(
         &self,
@@ -154,7 +224,13 @@ impl InclusionBoost {
 
         tracing::info!(url, payload=?request, "POST request sent");
 
-        let response = self.relay_client.post(url).json(&request).send().await?;
+        let response = match self.relay_client.post(url).timeout(Duration::from_secs(10)).json(&request).send().await {
+            Ok(res) => res,
+            Err(e) => {
+                println!("{:?}", e);
+                return Err(e.into())
+            }
+        };
 
 
         let status = response.status();

@@ -44,8 +44,8 @@ async fn main() -> Result<(), InclusionListBoostError> {
 
     let state = PbsState::new(pbs_module).with_data(pbs_module_custom_data);
 
-    let inclusion_sidecar =
-        InclusionSideCar::new(config, eth_provider, cache, state.config.pbs_config.port);
+    let mut inclusion_sidecar =
+        InclusionSideCar::new(config, eth_provider, cache);
 
     let pbs_server = tokio::spawn(async move {
         let _ = PbsService::run::<InclusionListConfig, InclusionBoostApi>(state).await;

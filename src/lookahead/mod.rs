@@ -34,6 +34,26 @@ impl LookaheadProvider {
             .filter(|d| d.slot > current_slot)
             .collect::<Vec<_>>())
     }
+
+    // TODO refactor
+    /// Get proposer duties for the next epoch
+    pub async fn get_next_epoch_lookahead(&self) -> Result<Vec<ProposerDuty>, LookaheadError> {
+        tracing::info!("Getting next lookahead duties");
+
+        let current_slot = get_slot(&self.url, "head").await?
+            .ok_or(LookaheadError::FailedLookahead)?;
+
+        let epoch = current_slot / 32;
+        let next_epoch = epoch + 1;
+        tracing::info!("Getting next duties for epoch: {}", next_epoch);
+
+        let (_, duties) = self.client.get_proposer_duties(next_epoch).await?;
+
+        Ok(duties
+            .into_iter()
+            .filter(|d| d.slot > current_slot)
+            .collect::<Vec<_>>())
+    }
 }
 
 

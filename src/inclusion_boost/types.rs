@@ -3,7 +3,7 @@ use std::sync::Arc;
 
 use alloy::hex::ToHexExt;
 use alloy::primitives::{keccak256, Bytes};
-use alloy::rpc::types::beacon::BlsSignature;
+use alloy::rpc::types::beacon::{BlsPublicKey, BlsSignature};
 use alloy::{network::TransactionResponse, primitives::B256};
 use ethereum_consensus::ssz::prelude::List;
 use parking_lot::RwLock;
@@ -18,6 +18,21 @@ use tree_hash_derive::TreeHash;
 /// The BLS Domain Separator used in Ethereum 2.0.
 
 type MaxInclusionListLength = U1;
+
+#[derive(Debug, Default, Clone, PartialEq, Serialize, Deserialize)]
+pub struct InclusionListDelegateSignedMessage {
+  pub message: InclusionListDelegateMessage,
+  pub signature: BlsSignature
+}
+
+#[derive(Debug, Default, Clone, PartialEq, Serialize, Deserialize, TreeHash)]
+pub struct InclusionListDelegateMessage {
+  pub preconfer_pubkey: BlsPublicKey,
+  pub slot_number: u64,
+  pub chain_id: u64,
+  pub gas_limit: u64
+}
+
 
 #[derive(Debug, Default, Clone, PartialEq, Serialize, Deserialize, TreeHash)]
 pub struct InclusionList {
