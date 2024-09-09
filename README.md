@@ -95,7 +95,13 @@ I would argue that this design should use the encrypted mempool / min-bid model 
 
 # How to run 
 
-You will need to update the `cb.docker-compose.yml` and `cb-config.toml` files in order to run IL-Boost for your set-up
+The following commands will run the IL-Boost module.
+
+`cargo build --release`
+`sudo docker compose -f cb.docker-compose.yml up -d`
+`sudo docker build -t il-boost . -f ./Dockerfile`
+
+But first you will need to update the `cb.docker-compose.yml` and `cb-config.toml` files
 
 For `cb.docker-compose.yml` you'll need to change the following values
 
