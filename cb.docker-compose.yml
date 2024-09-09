@@ -5,7 +5,7 @@ services:
     environment:
       CB_MODULE_ID: IL_COMMIT
       CB_CONFIG: /cb-config.toml 
-      CB_SIGNER_JWT: 4sPRCh9oPSjDcOVzbsNtb9ZU4f9S9cJv
+      CB_SIGNER_JWT: ${JWT}
       METRICS_SERVER: 10000
       SIGNER_SERVER: cb_signer:20000
       ROLLING_DURATION: daily
@@ -25,7 +25,7 @@ services:
     container_name: cb_signer
     environment:
       CB_CONFIG: /cb-config.toml 
-      CB_JWTS: "{\"IL_COMMIT\":\"4sPRCh9oPSjDcOVzbsNtb9ZU4f9S9cJv\"}"
+      CB_JWTS: "{\"IL_COMMIT\":\"${JWT}\"}"
       METRICS_SERVER: 10000
       SIGNER_SERVER: 20000
       ROLLING_DURATION: daily
@@ -37,8 +37,8 @@ services:
     volumes:
     - ./cb-config.toml:/cb-config.toml:ro
     - ./logs:/var/logs/commit-boost
-    - ../../../Clients/go-ethereum/assigned_data/keys:/keys:ro
-    - ../../../Clients/go-ethereum/assigned_data/secrets:/secrets:ro
+    -  ${YOUR_PATH_TO_KEYS_DIR}:/keys:ro
+    -  ${YOUR_PATH_TO_SERETS_DIR}:/secrets:ro
     networks:
     - monitoring_network
     - signer_network

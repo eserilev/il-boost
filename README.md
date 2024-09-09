@@ -91,3 +91,28 @@ Encrypted mempools increase the [cost of censorship](https://cdn.prod.website-fi
 Multiple proposers increase the cost of censorship from the priority fee to the priority fee multiplied by the number of proposers since an adversary must bribe all proposers to exclude the transaction. The out-of-protocol inclusion list could achieve a similar cost of censorship by setting the default preference value to be a multiple of the priority fees of the transactions included in the inclusion list. This is more similar to the [`local-block-value-boost` parameter](https://docs.prylabs.network/docs/advanced/builder#prioritizing-local-blocks) implemented by clients.
 
 I would argue that this design should use the encrypted mempool / min-bid model since it is easier for the proposer to reason about a correct value and because clients are implementing a maximum value for the local block value boost based on [Data Always’ recent post](https://hackmd.io/@dataalways/censorship-resistance-today).
+
+
+# How to run 
+
+You will need to update the `cb.docker-compose.yml` and `cb-config.toml` files in order to run IL-Boost for your set-up
+
+For `cb.docker-compose.yml` you'll need to change the following values
+
+- `${YOUR_PATH_TO_KEYS_DIR}` should be replaced with the relative/absolute path to your keys directory
+- `${YOUR_PATH_TO_SERETS_DIR}` should be replaced with the relative/absolute path to your secrets directory
+- `${JWT}` should be replaced with your nodes JWT key. Note that this value needs to be replaced in two places
+
+For `cb-config.toml` please see the list of example configurations and update them accordingly
+
+## EL configs
+
+Make sure to enable the following web api features
+
+`admin,engine,net,eth,web3,debug,txpool`
+
+i.e `--http.api=admin,engine,net,eth,web3,debug,txpool` in Geth
+
+## CL/VC configs
+
+Make sure to enable external block building capabilities and point the block builder URL to your local Commit-Boost PBS module
