@@ -69,22 +69,10 @@ impl InclusionBoost {
         block: &Block<alloy::rpc::types::Transaction>,
     ) -> Vec<Constraint> {
         let mut filtered_transactions = vec![];
-        let mut gas_left = block.header.gas_limit - block.header.gas_used;
-        
         for tx in transactions {
-            if let Some(max_priority_fee_per_gas) = tx.max_priority_fee_per_gas {
-                if max_priority_fee_per_gas > 0 && gas_left > 0 {
-                    gas_left = gas_left.saturating_sub(tx.gas);
-              
-                    filtered_transactions.push(Constraint {
-                        tx: bytes_to_array(tx.bytes.clone()),
-                    });
-                    tracing::info!(
-                        tx_hash = ?tx.tx_hash,
-                        "Added transaction to inclusion list"
-                    );
-                }
-            }
+            filtered_transactions.push(Constraint {
+                tx: bytes_to_array(tx.bytes.clone()),
+            });
         }
 
         filtered_transactions
