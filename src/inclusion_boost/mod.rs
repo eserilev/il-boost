@@ -213,7 +213,10 @@ impl InclusionBoost {
         tracing::info!(url, payload=?request, "POST request sent");
 
         let response = match self.relay_client.post(url).timeout(Duration::from_secs(10)).json(&request).send().await {
-            Ok(res) => res,
+            Ok(res) => {
+                println!("Relay response code for inclusion list: {}", res.status().as_u16());
+                res
+            },
             Err(e) => {
                 println!("{:?}", e);
                 return Err(e.into())
