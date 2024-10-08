@@ -11,7 +11,7 @@ use reth_transaction_pool::{test_utils::MockTransaction, ValidPoolTransaction};
 use serde::ser::SerializeStruct;
 use serde::{Deserialize, Serialize, Serializer};
 use serde_utils::hex;
-use ssz_types::typenum::{U1, U1000, U4, U512};
+use ssz_types::typenum::{U1, U1000};
 use ssz_types::{FixedVector, VariableList};
 use tree_hash::TreeHash;
 use tree_hash_derive::TreeHash;
@@ -42,29 +42,10 @@ pub struct InclusionList {
         FixedVector<FixedVector<Constraint, MaxInclusionListLength>, MaxInclusionListLength>,
 }
 
-#[derive(Debug, Default, Clone, PartialEq, Deserialize)]
+#[derive(Debug, Default, Clone, PartialEq, Deserialize, TreeHash)]
 pub struct Constraint {
     pub payload: ssz_types::VariableList<u8, U1000>,
-    pub hash: tree_hash::Hash256,
-}
-
-impl TreeHash for Constraint {
-    fn tree_hash_type() -> tree_hash::TreeHashType {
-        tree_hash::TreeHashType::List
-    }
-
-    fn tree_hash_packed_encoding(&self) -> tree_hash::PackedEncoding {
-        unreachable!("Should not be packed")
-    }
-
-    fn tree_hash_packing_factor() -> usize {
-        unreachable!("Should not be packed")
-    }
-
-    fn tree_hash_root(&self) -> tree_hash::Hash256 {
-        let root = self.payload.tree_hash_root();
-        tree_hash::mix_in_length(&root, self.payload.len())
-    }
+    pub hash: B256,
 }
 
 impl Serialize for Constraint {
