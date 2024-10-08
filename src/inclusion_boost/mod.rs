@@ -58,7 +58,7 @@ impl InclusionBoost {
             let encoded = tx.envelope.encoded_2718();
             filtered_transactions.push(Constraint {
                 payload: encoded.into(),
-                hash: tx.envelope.trie_hash().into(),
+                hash: *tx.envelope.tx_hash(),
             });
         }
 

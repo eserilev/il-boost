@@ -11,7 +11,7 @@ use reth_transaction_pool::{test_utils::MockTransaction, ValidPoolTransaction};
 use serde::ser::SerializeStruct;
 use serde::{Deserialize, Serialize, Serializer};
 use serde_utils::hex;
-use ssz_types::typenum::{U1, U1000, U4, U512};
+use ssz_types::typenum::{U1, U1000};
 use ssz_types::{FixedVector, VariableList};
 use tree_hash::TreeHash;
 use tree_hash_derive::TreeHash;
@@ -45,7 +45,7 @@ pub struct InclusionList {
 #[derive(Debug, Default, Clone, PartialEq, Deserialize)]
 pub struct Constraint {
     pub payload: ssz_types::VariableList<u8, U1000>,
-    pub hash: tree_hash::Hash256,
+    pub hash: B256,
 }
 
 impl TreeHash for Constraint {
