@@ -1,9 +1,8 @@
 use std::{collections::HashMap, sync::Arc, thread::sleep, time::Duration};
 
 use alloy::{
-    eips::BlockId,
     providers::{ext::TxPoolApi, Provider, RootProvider},
-    rpc::types::{beacon::events::HeadEvent, Block, BlockTransactionsKind},
+    rpc::types::{beacon::events::HeadEvent, Block},
     transports::http::Http,
 };
 
@@ -12,7 +11,8 @@ use futures::StreamExt;
 use mev_share_sse::EventClient;
 
 use crate::{
-    config::InclusionListConfig, inclusion_boost::types::InclusionList,
+    config::InclusionListConfig,
+    inclusion_boost::types::InclusionList,
     lookahead::{error::LookaheadError, LookaheadProvider},
 };
 
@@ -34,7 +34,7 @@ impl InclusionSideCar {
         config: StartCommitModuleConfig<InclusionListConfig>,
         eth_provider: RootProvider<alloy::transports::http::Http<reqwest::Client>>,
         cache: Arc<InclusionBoostCache>,
-    ) -> Self {        
+    ) -> Self {
         let inclusion_boost = InclusionBoost::new(
             config.id.to_string(),
             config.signer_client,
@@ -59,7 +59,9 @@ impl InclusionSideCar {
             let index = get_validator_index(&self.il_config.beacon_api, &p.to_string()).await?;
             if let Some(validator_index) = index {
                 println!("validator_index {}", validator_index);
-                self.inclusion_boost.validator_keys.insert(validator_index as usize, p);
+                self.inclusion_boost
+                    .validator_keys
+                    .insert(validator_index as usize, p.into());
             }
         }
 
@@ -67,10 +69,16 @@ impl InclusionSideCar {
         let mut next_lookahead = lookahead_provider.get_next_epoch_lookahead().await?;
 
         for future_proposer in next_lookahead {
-            let res = self.inclusion_boost.delegate_inclusion_list_authority(future_proposer.validator_index, future_proposer.slot).await;
+            let res = self
+                .inclusion_boost
+                .delegate_inclusion_list_authority(
+                    future_proposer.validator_index,
+                    future_proposer.slot,
+                )
+                .await;
             println!("{:?}", res);
         }
-       
+
         let lookahead_size = lookahead.len();
         tracing::info!(lookahead_size, "Initial proposer lookahead fetched");
 
@@ -85,7 +93,13 @@ impl InclusionSideCar {
                 lookahead = lookahead_provider.get_current_lookahead().await?;
                 next_lookahead = lookahead_provider.get_next_epoch_lookahead().await?;
                 for future_proposer in next_lookahead {
-                    let res = self.inclusion_boost.delegate_inclusion_list_authority(future_proposer.validator_index, future_proposer.slot).await;
+                    let res = self
+                        .inclusion_boost
+                        .delegate_inclusion_list_authority(
+                            future_proposer.validator_index,
+                            future_proposer.slot,
+                        )
+                        .await;
                     println!("{:?}", res);
                 }
                 tracing::info!("Epoch transition, fetched new proposer lookahead...");
@@ -106,7 +120,6 @@ impl InclusionSideCar {
             let Some(block_number) = block_number else {
                 continue;
             };
-
 
             let Some(latest_block) = self.get_block_by_number(block_number).await? else {
                 continue;
@@ -140,24 +153,31 @@ impl InclusionSideCar {
         Ok(())
     }
 
-    async fn get_block_by_number(&self, block_number: u64) -> Result<Option<Block>, InclusionListBoostError> {
+    async fn get_block_by_number(
+        &self,
+        block_number: u64,
+    ) -> Result<Option<Block>, InclusionListBoostError> {
         self.eth_provider
             .get_block_by_number(alloy::eips::BlockNumberOrTag::Number(block_number), true)
             .await
-            .map_err(|e| {
-                e.into()
-            })
+            .map_err(|e| e.into())
     }
 
-    async fn get_block_number_by_slot(&self, slot: u64) -> Result<Option<u64>, InclusionListBoostError> {
-
+    async fn get_block_number_by_slot(
+        &self,
+        slot: u64,
+    ) -> Result<Option<u64>, InclusionListBoostError> {
         tracing::info!(slot, "Get block number by slot");
 
-        let url = format!("{}/eth/v1/beacon/blocks/{}", self.il_config.beacon_api, slot);
+        let url = format!(
+            "{}/eth/v1/beacon/blocks/{}",
+            self.il_config.beacon_api, slot
+        );
         let res = reqwest::get(url).await?;
         let json: serde_json::Value = serde_json::from_str(&res.text().await?)?;
-        
-        let Some(block_number) = json.pointer("/data/message/body/execution_payload/block_number") else {
+
+        let Some(block_number) = json.pointer("/data/message/body/execution_payload/block_number")
+        else {
             return Ok(None);
         };
 
@@ -212,8 +232,10 @@ impl InclusionSideCar {
     }
 }
 
-
-async fn get_validator_index(beacon_url: &str, validator_pubkey: &str) -> Result<Option<u64>, LookaheadError>{
+async fn get_validator_index(
+    beacon_url: &str,
+    validator_pubkey: &str,
+) -> Result<Option<u64>, LookaheadError> {
     let url = format!("{beacon_url}/eth/v1/beacon/states/head/validators?id={validator_pubkey}");
     let res = reqwest::get(url).await?;
     let json: serde_json::Value = serde_json::from_str(&res.text().await?)?;

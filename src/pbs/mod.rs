@@ -1,5 +1,3 @@
-use std::marker::PhantomData;
-
 use axum::{
     async_trait,
     body::Body,
@@ -11,7 +9,6 @@ use axum::{
 };
 use cb_pbs::{BuilderApi, BuilderApiState, PbsState};
 use reqwest::StatusCode;
-use serde::Deserialize;
 
 use crate::{config::InclusionListConfig, inclusion_boost::types::InclusionList};
 

@@ -61,7 +61,6 @@ impl From<LookaheadError> for InclusionListBoostError {
     }
 }
 
-
 impl From<ParseIntError> for InclusionListBoostError {
     fn from(value: ParseIntError) -> Self {
         InclusionListBoostError::ParseIntError(value)
@@ -73,7 +72,6 @@ impl From<serde_json::Error> for InclusionListBoostError {
         InclusionListBoostError::Serde(value)
     }
 }
-
 
 // impl From<Utf8Error> for InclusionListBoostError {
 //     fn from(value: Utf8Error) -> Self {
