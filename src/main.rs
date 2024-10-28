@@ -1,7 +1,7 @@
 use std::{collections::HashMap, fs, sync::Arc};
 
 use cb_common::{
-    config::{load_pbs_custom_config, load_commit_module_config, StaticModuleConfig},
+    config::{load_commit_module_config, load_pbs_custom_config, StaticModuleConfig},
     utils::initialize_tracing_log,
 };
 use cb_pbs::{PbsService, PbsState};
@@ -32,7 +32,7 @@ async fn main() -> Result<(), InclusionListBoostError> {
     // parse_toml();
     let config = load_commit_module_config::<InclusionListConfig>().expect("failed to load config");
     let _ = initialize_tracing_log(&config.id);
-  
+
     let eth_provider: RootProvider<Http<reqwest::Client>> =
         ProviderBuilder::new().on_http(config.extra.execution_api.parse().unwrap());
     let cache = Arc::new(InclusionBoostCache {
@@ -40,12 +40,12 @@ async fn main() -> Result<(), InclusionListBoostError> {
         inclusion_list_cache: Arc::new(RwLock::new(HashMap::new())),
     });
 
-    let (pbs_module, pbs_module_custom_data) = load_pbs_custom_config::<InclusionListConfig>().expect("failed to load pbs config");
+    let (pbs_module, pbs_module_custom_data) =
+        load_pbs_custom_config::<InclusionListConfig>().expect("failed to load pbs config");
 
     let state = PbsState::new(pbs_module).with_data(pbs_module_custom_data);
 
-    let mut inclusion_sidecar =
-        InclusionSideCar::new(config, eth_provider, cache);
+    let mut inclusion_sidecar = InclusionSideCar::new(config, eth_provider, cache);
 
     let pbs_server = tokio::spawn(async move {
         let _ = PbsService::run::<InclusionListConfig, InclusionBoostApi>(state).await;
@@ -54,7 +54,6 @@ async fn main() -> Result<(), InclusionListBoostError> {
     let il_sidecar = tokio::spawn(async move {
         let _ = inclusion_sidecar.run().await;
     });
-
 
     let _ = tokio::join!(pbs_server, il_sidecar);
 
